@@ -180,6 +180,41 @@ This is slower but still works. The paradigm matters more than the tool.
 
 ---
 
+## Migrating an Existing Project
+
+If your project already has docs, a CLAUDE.md, or scattered markdown:
+
+1. **Don't delete anything.** Run bootstrap with default settings — it skips existing files.
+2. Preview first: `python3 bootstrap_knowledge_system.py /your/project "Name" --dry-run`
+3. Move existing docs into `docs/wiki/` manually
+4. Register existing raw files (PDFs, Excel) in `manifests/raw_sources.csv`
+5. Merge your existing CLAUDE.md rules with the generated session protocol
+6. Run `python3 scripts/wiki_check.py` to verify the structure
+
+The bootstrap never overwrites unless you pass `--force`. Your existing work is safe.
+
+---
+
+## FAQ
+
+**Q: Why not just use an Obsidian AI plugin?**
+
+An Obsidian plugin locks your knowledge into one tool. If the plugin dies, your workflow dies. LLM Wiki is a paradigm built on `.md` files and filesystem conventions. Switch from Claude to Codex to Cursor — your wiki stays. Obsidian is a great viewer, but the engine is LLM + filesystem, not any single app.
+
+**Q: Why not RAG / vector search?**
+
+Under ~100 documents, LLMs reading files directly outperforms vector retrieval. Less infra, fewer hallucinations, easier debugging. When your wiki grows past that, RAG becomes worth it. Start simple.
+
+**Q: How does this handle stale knowledge?**
+
+Current approach: `wiki_check.py` validates structure (broken links, missing pages). For content freshness, the log and manifest track when each source was last compiled. Future direction: source provenance with content hashes — every compiled fact records which source file produced it and its hash at compilation time. Query-time validation checks if the source still matches. See the playbook for the roadmap.
+
+**Q: What about multiple people / teams?**
+
+Each team maintains their own wiki pages. The index ties everything together. Git handles conflicts. The session protocol ensures each person's AI writes back to the same wiki, so knowledge converges rather than fragmenting across chat histories.
+
+---
+
 ## The Bootstrap Script
 
 For a faster setup, use the included Python script:

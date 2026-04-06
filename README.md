@@ -54,19 +54,17 @@ Read https://github.com/Ss1024sS/LLM-wiki/blob/main/UNIVERSAL.md and set up the 
 
 ```
 LLM-wiki/
-├── UNIVERSAL.md                    # Start here. Platform-agnostic setup guide.
+├── UNIVERSAL.md                    # Start here. Setup guide for any AI platform.
 ├── docs/
-│   └── knowledge-system-playbook.md  # Full rationale and operating model
+│   └── knowledge-system-playbook.md  # Full rationale (Chinese + English), provenance roadmap
 ├── examples/
-│   └── demo-project/               # What a bootstrapped project looks like
-│       ├── CLAUDE.md
-│       ├── docs/wiki/              # 5 wiki pages with real content
+│   └── demo-project/               # What a bootstrapped project looks like after 3 sessions
+│       ├── CLAUDE.md / AGENTS.md / .cursorrules / .windsurfrules
+│       ├── docs/wiki/              # 5 wiki pages with realistic content
 │       └── manifests/raw_sources.csv
 ├── skills/
 │   └── knowledge-system-bootstrap/  # Codex skill for automated scaffolding
-│       ├── SKILL.md
-│       ├── scripts/bootstrap_knowledge_system.py
-│       └── agents/openai.yaml
+│       └── scripts/bootstrap_knowledge_system.py  # Generates 20 files in one command
 └── scripts/
     └── install-codex-skill.sh
 ```
@@ -87,10 +85,15 @@ Works with Claude Code, Codex, Cursor, Windsurf.
 
 ```bash
 git clone https://github.com/Ss1024sS/LLM-wiki.git
+
+# Preview first (dry run)
+python3 LLM-wiki/skills/knowledge-system-bootstrap/scripts/bootstrap_knowledge_system.py /path/to/your-project "My Project" --dry-run
+
+# Then run for real
 python3 LLM-wiki/skills/knowledge-system-bootstrap/scripts/bootstrap_knowledge_system.py /path/to/your-project "My Project"
 ```
 
-Generates wiki structure, manifests, validation scripts, and agent config in one command.
+Generates 20 files: wiki structure, manifests, validation scripts, CI workflow, and configs for 4 AI platforms.
 
 ### Option C: Install as Codex skill
 
@@ -130,9 +133,9 @@ See `examples/demo-project/` for what a healthy wiki looks like after a few sess
 
 ## Read More
 
-- [UNIVERSAL.md](./UNIVERSAL.md) — Platform-agnostic setup guide with templates for every AI
-- [docs/knowledge-system-playbook.md](./docs/knowledge-system-playbook.md) — Full rationale, GitHub/raw split strategy, operating model
-- [examples/demo-project/](./examples/demo-project/) — What a bootstrapped project actually looks like
+- [UNIVERSAL.md](./UNIVERSAL.md) — Setup guide + migration path + FAQ + templates for every AI
+- [docs/knowledge-system-playbook.md](./docs/knowledge-system-playbook.md) — Full rationale (CN+EN), GitHub/raw split, provenance roadmap
+- [examples/demo-project/](./examples/demo-project/) — What a bootstrapped project looks like after 3 sessions
 
 ---
 

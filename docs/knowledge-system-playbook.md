@@ -216,6 +216,47 @@ python3 scripts/bootstrap_knowledge_system.py /path/to/new-repo "My New Project"
 
 那上整套知识系统就是给自己加戏。
 
+## Roadmap: Source Provenance（下一步进化）
+
+当前的 wiki 模式解决了"知识不丢失"的问题。但还有一层没解决：**知识会过期**。
+
+wiki 页面说"PCBA 成本是 2.55 元"，这个数字来自哪份 Excel？那份 Excel 现在还是这个值吗？
+
+Source provenance 是解决方案：
+
+### 核心思路
+
+1. **每个编译结论记录来源** — wiki 页面里的每个事实，标注它编译自哪份 raw 文件
+2. **Content hash 追踪** — 编译时记录源文件的 hash。查询时比对当前 hash，不一致则标记为 stale
+3. **Query-time delta compilation** — 查询时不是重新编译全量，而是找出"源文件关于这个问题说了什么 wiki 还没收录的"，只编译增量
+4. **Git branching 天然兼容** — 切分支，文件变了，不同的 propositions 自动标记为 valid/stale。合并分支，知识也合并
+
+### 技术方案（未实现，规划中）
+
+```python
+# manifest 增加 content_hash 列
+source_id,filename,raw_rel_path,status,compiled_into,content_hash
+src_001,报价模板.xlsx,internal/报价模板.xlsx,compiled,project-overview.md,sha256:a1b2c3...
+
+# wiki 页面增加 provenance 标注
+<!-- provenance: src_001@sha256:a1b2c3 -->
+PCBA 材料成本 = 2.55 元（5W 人工制费）
+
+# 查询时校验
+if current_hash(src_001) != stored_hash:
+    mark_as_stale("PCBA 材料成本 = 2.55 元")
+    suggest_recompile(src_001, "project-overview.md")
+```
+
+### 什么时候该上 provenance
+
+- wiki 超过 20 页
+- raw 源文件会频繁更新（价格表、客户资料）
+- 多人协作，需要知道"这个结论还对不对"
+- 已经被 stale 知识坑过
+
+当前阶段不需要。先把 raw → wiki → code 的基础流程跑顺。
+
 ## 结论
 
 这套东西本质上不是文档模板，而是知识生产线：
@@ -225,3 +266,103 @@ python3 scripts/bootstrap_knowledge_system.py /path/to/new-repo "My New Project"
 - code 是执行层
 
 顺序别反。
+
+---
+
+# Knowledge System Playbook (English)
+
+This document is a reusable knowledge engineering playbook, not a single-project spec.
+
+## One-Line Paradigm
+
+5 rules:
+
+- `compile-first`, not Q&A
+- `writeback` is mandatory
+- Medium-sized projects use `wiki` before heavy `RAG`
+- Obsidian is replaceable, the paradigm is not
+- `Idea / Intent` outranks `Code`
+
+## Core Layers
+
+### 1. raw
+
+Source materials: PDFs, XLSX, screenshots, client originals, interview transcripts.
+
+Raw is evidence. Don't modify it.
+
+### 2. wiki
+
+Compiled project knowledge: overview, current status, data sources, rules, risks, timeline.
+
+Wiki is current consensus. Must be continuously written back to.
+
+### 3. code
+
+Execution layer: business logic, rules, tests, deploy scripts.
+
+Code is a compiled artifact, not the single source of truth.
+
+## Why Not RAG First
+
+Most medium-sized projects haven't reached the threshold where a retrieval system is worth building.
+
+The more valuable sequence:
+
+1. Collect raw
+2. Compile raw into wiki
+3. Drop stable wiki conclusions into code
+
+If raw is still a mess, RAG is just fancy searching through garbage.
+
+## GitHub vs Local Raw
+
+**GitHub private repo should contain:** code, wiki, manifests, verified cases, lightweight knowledge files, rules, tests.
+
+**Should NOT contain:** bulk PDFs, full Excel workbooks, image archives, zip/rar history packs.
+
+**Local raw root** lives outside the repo, e.g. `../my_project_raw/`.
+
+## Manifests
+
+A manifest is the raw file index, not the raw files themselves.
+
+Required columns: `source_id, company, vendor, kind, filename, raw_rel_path, status, compiled_into, notes`
+
+Status values: `new` → `compiled` → `archived`
+
+## Session Default Behavior
+
+Every non-trivial session starts by reading:
+
+1. `docs/wiki/index.md`
+2. `docs/wiki/current-status.md`
+3. `docs/wiki/log.md`
+
+This must be written into the repo-level agent config (CLAUDE.md / AGENTS.md / .cursorrules), not relied on verbally.
+
+## Why Writeback Is Non-Negotiable
+
+Without writeback, the LLM wastes tokens re-deriving the same conclusions.
+
+After every durable outcome:
+
+- New raw arrives → register in manifest
+- New conclusion → update wiki
+- New rule → update wiki + add test
+- New verified sample → add to verified cases
+
+## Roadmap: Source Provenance
+
+The next evolution: every compiled fact records which source file produced it and its content hash at compilation time. Queries validate freshness by checking if sources still match. Knowledge grows with every query but never serves silently stale information.
+
+See the Chinese section above for the full technical design.
+
+## When NOT to Use This
+
+- Tiny throwaway demo
+- One person, two days, done
+- No source materials
+- No business knowledge to accumulate
+
+Don't add ceremony to projects that don't need it.

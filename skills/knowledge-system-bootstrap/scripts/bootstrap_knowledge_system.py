@@ -122,7 +122,7 @@ EXPECTED_COLUMNS = [
     "compiled_into",
     "notes",
 ]
-ALLOWED_STATUS = {"new", "indexed", "compiled_to_wiki", "compiled_to_rulebook", "compiled_to_verified_cases", "archived"}
+ALLOWED_STATUS = {"new", "compiled", "archived"}
 
 
 def main() -> int:
@@ -165,7 +165,7 @@ def main() -> int:
                 if not candidate.exists():
                     errors.append(f"row {idx}: missing local raw file {candidate}")
 
-            if status.startswith("compiled") and not compiled_into:
+            if status == "compiled" and not compiled_into:
                 errors.append(f"row {idx}: status {status} requires compiled_into")
 
     if errors:
@@ -374,6 +374,7 @@ def main() -> int:
     parser.add_argument("target_dir", help="Target repository root")
     parser.add_argument("project_name", help="Human-readable project name")
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be created without writing anything")
     parser.add_argument("--raw-root-name", help="Folder name to use for the default local raw root")
     args = parser.parse_args()
 
@@ -584,22 +585,54 @@ Rules:
 - Every conclusion goes back into the wiki (writeback is mandatory)
 - Raw files (PDF/XLSX) stay outside Git, only manifests/ indexes go in
 """,
+        target / ".github" / "workflows" / "wiki-lint.yml": """name: Wiki Lint
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check wiki structure
+        run: python3 scripts/wiki_check.py
+      - name: Check raw manifest
+        run: python3 scripts/raw_manifest_check.py
+""",
         target / ".gitignore": ".obsidian/\\nraw/\\nraw_local/\\nraw_vault/\\n",
     }
 
     created: list[Path] = []
+    skipped: list[Path] = []
     for path, content in files.items():
         if path.exists() and not args.force:
+            skipped.append(path)
             continue
-        write(path, content)
+        if not args.dry_run:
+            write(path, content)
         created.append(path)
+
+    if args.dry_run:
+        print(f"[DRY RUN] Would bootstrap: {project_name}")
+        print(f"Target repo: {target}")
+        print(f"Default raw root name: {raw_root_name}")
+        print(f"\\nWould create {len(created)} files:")
+        for path in created:
+            print(f"  + {path.relative_to(target)}")
+        if skipped:
+            print(f"\\nWould skip {len(skipped)} existing files (use --force to overwrite):")
+            for path in skipped:
+                print(f"  ~ {path.relative_to(target)}")
+        return 0
 
     print(f"Bootstrapped knowledge system for: {project_name}")
     print(f"Target repo: {target}")
     print(f"Default raw root name: {raw_root_name}")
-    print("Files created/updated:")
+    print(f"\\nFiles created: {len(created)}")
     for path in created:
-        print(f"- {path}")
+        print(f"  + {path.relative_to(target)}")
+    if skipped:
+        print(f"\\nSkipped (already exist): {len(skipped)}")
+        for path in skipped:
+            print(f"  ~ {path.relative_to(target)}")
 
     print("\\nNext steps:")
     print(f"1. cd {target}")

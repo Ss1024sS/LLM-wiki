@@ -1,4 +1,4 @@
 source_id,company,vendor,kind,filename,raw_rel_path,status,compiled_into,notes
-src_001,Acme,internal,excel,Quoting Template v3.xlsx,internal_sources/Quoting Template v3.xlsx,compiled_to_wiki,project-overview.md,Core pricing formulas
-src_002,Acme,internal,pdf,Customer Price List.pdf,internal_sources/Customer Price List.pdf,compiled_to_wiki,current-status.md,Tier A/B/C margins
-src_003,Acme,internal,cad,Factory Layout.dwg,internal_sources/Factory Layout.dwg,indexed,,Reference only
+src_001,Acme,internal,excel,Quoting Template v3.xlsx,internal_sources/Quoting Template v3.xlsx,compiled,project-overview.md,Core pricing formulas
+src_002,Acme,internal,pdf,Customer Price List.pdf,internal_sources/Customer Price List.pdf,compiled,current-status.md,Tier A/B/C margins
+src_003,Acme,internal,cad,Factory Layout.dwg,internal_sources/Factory Layout.dwg,new,,Reference only - not yet compiled
