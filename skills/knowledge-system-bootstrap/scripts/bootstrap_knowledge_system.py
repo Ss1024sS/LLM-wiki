@@ -540,11 +540,11 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 - If two wiki pages contradict each other → flag it to the user, resolve before proceeding
 
 ### Token Budget
-- Session start: read only 3 files (index, status, log). Never read all wiki pages upfront.
-- During work: read specific pages only when the current task needs them.
-- Structural checks: use Python scripts (wiki_check.py, untracked_raw_check.py) — zero LLM tokens.
-- Wiki dedup/merge: only when explicitly requested or when wiki exceeds 10 files.
-- Recompiling raw: only recompile what changed since last compilation.
+Normal operations are cheap. Full audit/recompilation are disaster recovery, not regular workflow.
+- Session start: read 3 files (index, status, log). ~2K tokens. Never read all pages upfront.
+- During work: read specific pages one at a time, only when needed.
+- Structural checks: Python scripts (wiki_check.py, untracked_raw_check.py) — zero LLM tokens.
+- If every session does incremental writeback, you never need full audit or recompilation.
 
 ### Rules
 - compile-first: don't just answer, write conclusions into wiki pages

@@ -109,13 +109,17 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 - If `log.md` is missing entries from before your session → don't guess, only append your own
 - If two wiki pages contradict each other → flag it to the user, resolve before proceeding
 
-### Token Budget Rules
-The wiki is designed for lazy loading. Follow these rules to keep token costs predictable:
-- **Session start**: read only 3 files (index, status, log). ~2K tokens. Never read all wiki pages upfront.
-- **During work**: read specific wiki pages only when the current task needs them. One page at a time.
-- **Full audit** (wiki_check, raw_manifest_check, untracked_raw_check): these are Python scripts, zero LLM tokens.
-- **Wiki dedup/merge**: only do this when explicitly requested or when memory/ exceeds 10 files. Not every session.
-- **Recompiling raw sources**: only recompile what changed, not everything. If a raw file hasn't changed since last compilation, skip it.
+### Token Budget
+Normal operations are cheap. The wiki is designed for incremental updates, not bulk reads.
+- **Session start**: read 3 files (index, status, log). ~2K tokens.
+- **During work**: read specific pages one at a time, only when needed.
+- **Structural checks**: `wiki_check.py`, `raw_manifest_check.py`, `untracked_raw_check.py` are Python scripts. Zero LLM tokens.
+- **Never read all wiki pages upfront.** If the protocol is followed, you never need to.
+
+Full audit and recompilation are **disaster recovery**, not normal workflow:
+- Full wiki audit: only if the wiki was neglected for months and you suspect widespread contradictions.
+- Full raw recompilation: only if source files were silently replaced outside the normal flow.
+- If every session does its incremental writeback correctly, neither of these ever happens.
 
 ### Rules
 - compile-first: don't just answer, write conclusions into wiki pages
@@ -229,19 +233,14 @@ Each team maintains their own wiki pages. The index ties everything together. Gi
 
 **Q: Won't the token cost get scary as the wiki grows?**
 
-Short answer: no, if you follow the lazy loading rules.
+No. The protocol is incremental by design. Daily cost:
+- Session start: 3 files, ~2K tokens — pennies
+- During work: 1-3 pages on demand, ~5K tokens — normal
+- Writeback: small diffs, not full rewrites
 
-The daily cost breakdown:
-- Session start reads 3 files (~2K tokens) — pennies
-- During work, you read 1-3 additional pages as needed (~5K tokens) — still cheap
-- Writeback updates are small diffs, not full rewrites
+Structural checks (broken links, missing files, untracked raw) use Python scripts — zero LLM tokens.
 
-The expensive operations (and when to do them):
-- Full wiki audit/dedup: only when you notice contradictions or when files exceed 10. Not every session.
-- Recompiling a raw source: only when that source actually changed. Don't re-read unchanged files.
-- Full consistency check across all pages: run the Python scripts (wiki_check.py) instead — zero tokens, same result for structural issues.
-
-The rule: **read 3 pages at start, read more only when needed, never read everything.** Structural validation goes through Python scripts, not through the LLM. This keeps daily token cost under 10K regardless of wiki size.
+"But what about full audits and recompilation?" Those are disaster recovery, not regular operations. If every session does its incremental writeback, contradictions don't accumulate and raw files don't go untracked. You never need to read the entire wiki. The design goal is that each session touches only what it needs — typically under 10K tokens for wiki maintenance, regardless of how large the wiki gets.
 
 **Q: Does this run automatically or do I need to tell the AI each time?**
 
