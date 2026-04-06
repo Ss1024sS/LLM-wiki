@@ -96,7 +96,7 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 
 ### During Work
 - New decision made → update the relevant wiki page immediately
-- New raw document discovered → register in `manifests/raw_sources.csv`, compile key info into wiki
+- **Any document file mentioned or received (PDF, Excel, image, etc.) → check `manifests/raw_sources.csv` first. If not listed, register it before proceeding.** This is the most commonly skipped step.
 - Task completed → update `docs/wiki/current-status.md`
 
 ### Session End

@@ -12,10 +12,11 @@ jobs:
           cd /tmp/test-output
           python3 scripts/wiki_check.py
           python3 scripts/raw_manifest_check.py
+          python3 scripts/untracked_raw_check.py
 
       - name: Verify --dry-run works
         run: |
-          python3 skills/knowledge-system-bootstrap/scripts/bootstrap_knowledge_system.py /tmp/dry-test "Dry Test" --dry-run | grep "Would create 20 files"
+          python3 skills/knowledge-system-bootstrap/scripts/bootstrap_knowledge_system.py /tmp/dry-test "Dry Test" --dry-run | grep "Would create 21 files"
 
       - name: Verify demo manifest is valid
         run: |
