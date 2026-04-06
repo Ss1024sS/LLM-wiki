@@ -121,11 +121,25 @@ Full audit and recompilation are **disaster recovery**, not normal workflow:
 - Full raw recompilation: only if source files were silently replaced outside the normal flow.
 - If every session does its incremental writeback correctly, neither of these ever happens.
 
+### Frontmatter
+Every wiki page (except index.md and log.md) must start with YAML frontmatter:
+```yaml
+---
+title: Page Title
+source: where this info came from (raw file path, URL, or "session")
+created: 2026-04-06
+tags: [relevant, tags]
+status: current
+---
+```
+This lets the AI know the provenance of each page without reading any external index. Obsidian renders it natively. `wiki_check.py` validates it automatically.
+
 ### Rules
 - compile-first: don't just answer, write conclusions into wiki pages
 - writeback is mandatory: if you learned something durable, it goes in the wiki
 - raw files stay outside Git, only manifests go in
 - all non-code files are "raw" — PDFs, spreadsheets, images, screenshots, customer attachments, archives, CAD files, audio, video
+- every wiki page must have frontmatter (title + source + created)
 ```
 
 ### Codex (`AGENTS.md`)

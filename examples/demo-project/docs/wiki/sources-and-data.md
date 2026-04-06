@@ -1,3 +1,11 @@
+---
+title: Sources and Data
+source: session
+created: 2026-04-01
+tags: [data, raw]
+status: current
+---
+
 # Sources and Data
 
 ## Raw Documents (outside Git)
@@ -8,7 +16,7 @@ Raw files live in `../acme_raw/` — never committed to Git.
 |------|------|--------|---------------|
 | Quoting Template v3.xlsx | Excel | compiled | project-overview.md |
 | Customer Price List.pdf | PDF | compiled | current-status.md |
-| Factory Layout.dwg | CAD | indexed | — |
+| Factory Layout.dwg | CAD | new | — |
 
 ## Database
 - PostgreSQL (pricing tables, customer data)

@@ -1,3 +1,12 @@
+---
+title: Acme Widget Factory — Overview
+source: raw/internal_sources/Quoting Template v3.xlsx
+created: 2026-04-01
+updated: 2026-04-03
+tags: [overview, formula]
+status: current
+---
+
 # Acme Widget Factory — Overview
 
 Acme makes industrial widgets. This system automates their quoting process.

@@ -35,6 +35,30 @@ REQUIRED_FILES = [
 
 LINK_RE = re.compile(r"\\[[^\\]]+\\]\\(([^)]+)\\)")
 LOG_HEADER_RE = re.compile(r"^## \\[\\d{4}-\\d{2}-\\d{2}\\] .+ \\| .+$")
+FRONTMATTER_RE = re.compile(r"^---\\n(.*?)\\n---", re.DOTALL)
+FRONTMATTER_EXEMPT = {"index.md", "log.md", "README.md", "SCHEMA.md"}
+REQUIRED_FRONTMATTER_KEYS = {"title", "source", "created"}
+
+
+def check_frontmatter(path: Path, text: str) -> list[str]:
+    errs: list[str] = []
+    rel = path.name
+    if rel in FRONTMATTER_EXEMPT:
+        return errs
+    m = FRONTMATTER_RE.match(text)
+    if not m:
+        errs.append(f"missing frontmatter: {path.relative_to(ROOT)}")
+        return errs
+    body = m.group(1)
+    found_keys: set[str] = set()
+    for line in body.splitlines():
+        if ":" in line:
+            key = line.split(":", 1)[0].strip()
+            found_keys.add(key)
+    missing = REQUIRED_FRONTMATTER_KEYS - found_keys
+    if missing:
+        errs.append(f"missing frontmatter keys in {path.relative_to(ROOT)}: {', '.join(sorted(missing))}")
+    return errs
 
 
 def resolve_link(source_file: Path, target: str) -> Path | None:
@@ -62,8 +86,16 @@ def main() -> int:
     md_files = sorted(WIKI_ROOT.rglob("*.md"))
     index_text = (WIKI_ROOT / "index.md").read_text(encoding="utf-8") if (WIKI_ROOT / "index.md").exists() else ""
 
+    fm_ok = 0
     for path in md_files:
         text = path.read_text(encoding="utf-8")
+
+        # Frontmatter check
+        fm_errors = check_frontmatter(path, text)
+        errors.extend(fm_errors)
+        if not fm_errors and path.name not in FRONTMATTER_EXEMPT:
+            fm_ok += 1
+
         if path.name == "log.md":
             headers = [line for line in text.splitlines() if line.startswith("## ")]
             for header in headers:
@@ -92,6 +124,7 @@ def main() -> int:
     print("wiki_check: OK")
     print(f"- markdown files: {len(md_files)}")
     print(f"- required files: {len(REQUIRED_FILES)}")
+    print(f"- frontmatter valid: {fm_ok}")
     print(f"- wiki root: {WIKI_ROOT}")
     return 0
 
@@ -551,6 +584,7 @@ Normal operations are cheap. Full audit/recompilation are disaster recovery, not
 - writeback is mandatory: if you learned something durable, it goes in the wiki
 - all non-code files are raw — PDFs, spreadsheets, images, screenshots, customer files, archives
 - raw files stay outside Git, only manifests go in
+- every wiki page (except index.md and log.md) must have YAML frontmatter with at least: title, source, created
 """,
         target / "docs" / "wiki" / "README.md": f"""# {project_name} Wiki
 
@@ -575,12 +609,43 @@ python3 scripts/wiki_check.py
 python3 scripts/raw_manifest_check.py
 ```
 """,
-        target / "docs" / "wiki" / "SCHEMA.md": """# Wiki Schema
+        target / "docs" / "wiki" / "SCHEMA.md": f"""# Wiki Schema
+
+## Frontmatter（每个 wiki 页面必须有）
+
+每个 `.md` 文件的头部用 YAML frontmatter 标注来源和状态：
+
+```yaml
+---
+title: 页面标题
+source: 编译来源（raw 文件路径、URL、或 "session" 表示来自对话）
+created: 创建日期 (YYYY-MM-DD)
+updated: 最后更新日期 (YYYY-MM-DD)
+tags: [标签1, 标签2]
+status: current / draft / stale
+---
+```
+
+### 必填字段
+- `title` — 页面标题
+- `source` — 信息来源。让每个事实可追溯。
+- `created` — 创建日期
+
+### 可选字段
+- `updated` — 最后更新日期（不填则等于 created）
+- `tags` — 分类标签，Obsidian 可直接用
+- `status` — `current`（默认）/ `draft`（未确认）/ `stale`（可能过期）
+
+### 为什么这样设计
+- AI 读一个页面就知道信息从哪来，不用额外查 manifest
+- Obsidian 原生支持 frontmatter 属性面板
+- 比在正文里写"来源：xxx"更结构化，脚本可以校验
+- 零额外 token 开销（frontmatter 是页面自身的一部分）
 
 ## 页面
 
-- `index.md`
-- `log.md`
+- `index.md`（免 frontmatter，纯索引）
+- `log.md`（免 frontmatter，纯日志）
 - `project-overview.md`
 - `current-status.md`
 - `sources-and-data.md`
@@ -589,7 +654,7 @@ python3 scripts/raw_manifest_check.py
 ## 规则
 
 1. 新 raw 进来，先登记 manifest
-2. 新结论，必须回写 wiki
+2. 新结论，必须回写 wiki（带 frontmatter）
 3. 新规则，必须同时补测试
 4. 没证据，不要写成结论
 5. memory repo 只放编译结果，不放 raw 本体
@@ -610,15 +675,39 @@ python3 scripts/raw_manifest_check.py
 
 - 建立 wiki、manifest、检查脚本和 repo 级默认规则。
 """,
-        target / "docs" / "wiki" / "project-overview.md": f"""# {project_name} Overview
+        target / "docs" / "wiki" / "project-overview.md": f"""---
+title: {project_name} Overview
+source: session
+created: {today}
+tags: [overview]
+status: draft
+---
+
+# {project_name} Overview
 
 这里写项目的一句话定义、主线目标、交付边界。
 """,
-        target / "docs" / "wiki" / "current-status.md": f"""# {project_name} Current Status
+        target / "docs" / "wiki" / "current-status.md": f"""---
+title: {project_name} Current Status
+source: session
+created: {today}
+tags: [status]
+status: current
+---
+
+# {project_name} Current Status
 
 这里写当前已支持、未支持、线上状态、最近风险。
 """,
-        target / "docs" / "wiki" / "sources-and-data.md": f"""# {project_name} Sources and Data
+        target / "docs" / "wiki" / "sources-and-data.md": f"""---
+title: Sources and Data
+source: session
+created: {today}
+tags: [data, raw]
+status: current
+---
+
+# {project_name} Sources and Data
 
 原始资料默认放在本地 raw 根目录，不直接进 Git。
 
@@ -630,7 +719,15 @@ raw 根目录建议：
 
 GitHub 里只保留 manifest 和编译结果。
 """,
-        target / "docs" / "wiki" / "github-and-raw-strategy.md": """# GitHub and Raw Strategy
+        target / "docs" / "wiki" / "github-and-raw-strategy.md": f"""---
+title: GitHub and Raw Strategy
+source: session
+created: {today}
+tags: [strategy, git]
+status: current
+---
+
+# GitHub and Raw Strategy
 
 ## 结论
 
