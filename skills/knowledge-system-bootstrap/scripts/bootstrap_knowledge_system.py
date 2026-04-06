@@ -414,6 +414,12 @@ def main() -> int:
 - code：执行层
 
 只改代码不回写 wiki，算没做完。
+
+## 4. 一致性规则
+
+- `current-status.md` 和其他 wiki 页面冲突时 → 以更具体的页面为准，然后修正 `current-status.md`
+- `log.md` 缺少之前 session 的记录 → 不猜，只追加自己的
+- 两个 wiki 页面矛盾 → 标记给用户，解决后再继续
 """,
         target / "CLAUDE.md": f"""# {project_name} — Claude Rules
 
@@ -437,6 +443,11 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 1. Append one line to `docs/wiki/log.md`: date, topic, key outcomes
 2. Update `docs/wiki/current-status.md` with latest state
 3. If context is running low → generate `CONTINUATION-SUMMARY.md`
+
+### Consistency
+- If `current-status.md` conflicts with other wiki pages → trust the more specific page, then fix `current-status.md`
+- If `log.md` is missing entries from before your session → don't guess, only append your own
+- If two wiki pages contradict each other → flag it to the user, resolve before proceeding
 
 ### Rules
 - compile-first: don't just answer, write conclusions into wiki pages
@@ -563,6 +574,11 @@ After completing work:
 - Append a log entry to docs/wiki/log.md (date | topic | outcome)
 - If a durable decision was made, write it into the relevant wiki page
 
+Consistency:
+- If current-status.md conflicts with other wiki pages, trust the specific page and fix current-status.md
+- If log.md is missing prior entries, don't guess — only append your own
+- If two wiki pages contradict, flag it to the user before proceeding
+
 Rules:
 - Compile raw documents into wiki pages, don't just reference them
 - Every conclusion goes back into the wiki (writeback is mandatory)
@@ -579,6 +595,11 @@ After completing work:
 - Update docs/wiki/current-status.md with new state
 - Append a log entry to docs/wiki/log.md (date | topic | outcome)
 - If a durable decision was made, write it into the relevant wiki page
+
+Consistency:
+- If current-status.md conflicts with other wiki pages, trust the specific page and fix current-status.md
+- If log.md is missing prior entries, don't guess — only append your own
+- If two wiki pages contradict, flag it to the user before proceeding
 
 Rules:
 - Compile raw documents into wiki pages, don't just reference them

@@ -104,6 +104,11 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 2. Update `docs/wiki/current-status.md` with latest state
 3. If context is running low → generate `CONTINUATION-SUMMARY.md`
 
+### Consistency
+- If `current-status.md` conflicts with other wiki pages → trust the more specific page, then fix `current-status.md`
+- If `log.md` is missing entries from before your session → don't guess, only append your own
+- If two wiki pages contradict each other → flag it to the user, resolve before proceeding
+
 ### Rules
 - compile-first: don't just answer, write conclusions into wiki pages
 - writeback is mandatory: if you learned something durable, it goes in the wiki
