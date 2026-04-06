@@ -88,15 +88,15 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 
 ## Session Protocol (mandatory)
 
-### Session Start
+### Session Start (auto, no confirmation needed)
 1. Read `docs/wiki/index.md` — get the full page list
 2. Read `docs/wiki/current-status.md` — know where things stand
 3. Read `docs/wiki/log.md` — understand recent session history
-4. Read additional wiki pages as needed for the current task
+4. Read additional wiki pages **only as needed** for the current task (don't read everything)
 
 ### During Work
 - New decision made → update the relevant wiki page immediately
-- **Any document file mentioned or received (PDF, Excel, image, etc.) → check `manifests/raw_sources.csv` first. If not listed, register it before proceeding.** This is the most commonly skipped step.
+- **Any file mentioned, received, referenced, or saved — including screenshots, customer attachments, chat images, debug captures, PDFs, Excel, CAD files, archives → check `manifests/raw_sources.csv` first. Not listed → register it before proceeding.** This is the single most commonly skipped step.
 - Task completed → update `docs/wiki/current-status.md`
 
 ### Session End
@@ -109,10 +109,19 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 - If `log.md` is missing entries from before your session → don't guess, only append your own
 - If two wiki pages contradict each other → flag it to the user, resolve before proceeding
 
+### Token Budget Rules
+The wiki is designed for lazy loading. Follow these rules to keep token costs predictable:
+- **Session start**: read only 3 files (index, status, log). ~2K tokens. Never read all wiki pages upfront.
+- **During work**: read specific wiki pages only when the current task needs them. One page at a time.
+- **Full audit** (wiki_check, raw_manifest_check, untracked_raw_check): these are Python scripts, zero LLM tokens.
+- **Wiki dedup/merge**: only do this when explicitly requested or when memory/ exceeds 10 files. Not every session.
+- **Recompiling raw sources**: only recompile what changed, not everything. If a raw file hasn't changed since last compilation, skip it.
+
 ### Rules
 - compile-first: don't just answer, write conclusions into wiki pages
 - writeback is mandatory: if you learned something durable, it goes in the wiki
-- raw files (PDF/XLSX/images) stay outside Git, only manifests go in
+- raw files stay outside Git, only manifests go in
+- all non-code files are "raw" — PDFs, spreadsheets, images, screenshots, customer attachments, archives, CAD files, audio, video
 ```
 
 ### Codex (`AGENTS.md`)
@@ -217,6 +226,26 @@ Current approach: `wiki_check.py` validates structure (broken links, missing pag
 **Q: What about multiple people / teams?**
 
 Each team maintains their own wiki pages. The index ties everything together. Git handles conflicts. The session protocol ensures each person's AI writes back to the same wiki, so knowledge converges rather than fragmenting across chat histories.
+
+**Q: Won't the token cost get scary as the wiki grows?**
+
+Short answer: no, if you follow the lazy loading rules.
+
+The daily cost breakdown:
+- Session start reads 3 files (~2K tokens) — pennies
+- During work, you read 1-3 additional pages as needed (~5K tokens) — still cheap
+- Writeback updates are small diffs, not full rewrites
+
+The expensive operations (and when to do them):
+- Full wiki audit/dedup: only when you notice contradictions or when files exceed 10. Not every session.
+- Recompiling a raw source: only when that source actually changed. Don't re-read unchanged files.
+- Full consistency check across all pages: run the Python scripts (wiki_check.py) instead — zero tokens, same result for structural issues.
+
+The rule: **read 3 pages at start, read more only when needed, never read everything.** Structural validation goes through Python scripts, not through the LLM. This keeps daily token cost under 10K regardless of wiki size.
+
+**Q: Does this run automatically or do I need to tell the AI each time?**
+
+Fully automatic. The session protocol is written into your AI's config file (CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules). The AI reads it at session start and follows it without being asked. You install once, it works forever.
 
 ---
 

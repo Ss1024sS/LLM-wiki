@@ -483,7 +483,8 @@ def main() -> int:
 
 ## 1.5 文档文件自动归档
 
-凡是提到或收到的文档文件（PDF/Excel/图片等），第一件事查 `manifests/raw_sources.csv`。
+凡是提到、收到、引用、保存的任何非代码文件 → 第一件事查 `manifests/raw_sources.csv`。
+包括但不限于：PDF、Excel、截图、客户发来的附件、聊天图片、CAD图纸、压缩包。
 不在里面 → 先登记再用。这步最容易漏。
 
 定期跑 `python3 scripts/untracked_raw_check.py` 找遗漏。
@@ -525,7 +526,7 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 
 ### During Work
 - New decision made → update the relevant wiki page immediately
-- **Any document file mentioned or received (PDF, Excel, image, etc.) → check `manifests/raw_sources.csv` first. If not listed, register it before proceeding.** This is the most commonly skipped step.
+- **Any non-code file mentioned, received, referenced, or saved → check `manifests/raw_sources.csv` first. If not listed, register it before proceeding.** This includes PDFs, spreadsheets, screenshots, customer attachments, chat images, debug captures, CAD files, archives. This is the most commonly skipped step.
 - Task completed → update `docs/wiki/current-status.md`
 
 ### Session End
@@ -538,10 +539,18 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 - If `log.md` is missing entries from before your session → don't guess, only append your own
 - If two wiki pages contradict each other → flag it to the user, resolve before proceeding
 
+### Token Budget
+- Session start: read only 3 files (index, status, log). Never read all wiki pages upfront.
+- During work: read specific pages only when the current task needs them.
+- Structural checks: use Python scripts (wiki_check.py, untracked_raw_check.py) — zero LLM tokens.
+- Wiki dedup/merge: only when explicitly requested or when wiki exceeds 10 files.
+- Recompiling raw: only recompile what changed since last compilation.
+
 ### Rules
 - compile-first: don't just answer, write conclusions into wiki pages
 - writeback is mandatory: if you learned something durable, it goes in the wiki
-- raw files (PDF/XLSX/images) stay outside Git, only manifests go in
+- all non-code files are raw — PDFs, spreadsheets, images, screenshots, customer files, archives
+- raw files stay outside Git, only manifests go in
 """,
         target / "docs" / "wiki" / "README.md": f"""# {project_name} Wiki
 
@@ -660,7 +669,8 @@ Before starting any non-trivial task:
 3. Read docs/wiki/log.md for recent session history
 
 During work:
-- Any document file mentioned (PDF, Excel, image) → check manifests/raw_sources.csv first
+- Any non-code file mentioned, received, or saved (PDF, Excel, screenshots, customer attachments,
+  chat images, CAD files, archives) → check manifests/raw_sources.csv first
 - Not listed → register it before proceeding. This step is most commonly skipped.
 
 After completing work:
