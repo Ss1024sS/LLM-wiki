@@ -56,7 +56,8 @@ Read https://github.com/Ss1024sS/LLM-wiki/blob/main/UNIVERSAL.md and set up the 
 LLM-wiki/
 ├── UNIVERSAL.md                    # Start here. Setup guide for any AI platform.
 ├── docs/
-│   └── knowledge-system-playbook.md  # Full rationale (Chinese + English), provenance roadmap
+│   ├── knowledge-system-playbook.md  # Full rationale (Chinese + English), provenance roadmap
+│   └── ingest-pipeline.md            # Low-token raw intake + stale detection flow
 ├── examples/
 │   └── demo-project/               # What a bootstrapped project looks like after 3 sessions
 │       ├── CLAUDE.md / AGENTS.md / .cursorrules / .windsurfrules
@@ -64,7 +65,7 @@ LLM-wiki/
 │       └── manifests/raw_sources.csv
 ├── skills/
 │   └── knowledge-system-bootstrap/  # Codex skill for automated scaffolding
-│       └── scripts/bootstrap_knowledge_system.py  # Generates 27 files in one command
+│       └── scripts/bootstrap_knowledge_system.py  # Generates 29 files in one command
 └── scripts/
     └── install-codex-skill.sh
 ```
@@ -96,7 +97,7 @@ python3 scripts/bootstrap_knowledge_system.py /path/to/your-project "My Project"
 
 **Always use `scripts/bootstrap_knowledge_system.py`** (the root wrapper). Never call the one inside `skills/` directly — that's the Codex skill's internal copy.
 
-Generates 27 files: wiki structure, frontmatter templates, manifests, validation scripts, Claude Code commands, CI workflow, and configs for 4 AI platforms.
+Generates 29 files: wiki structure, frontmatter templates, manifests, raw intake + stale reporting scripts, validation scripts, Claude Code commands, CI workflow, and configs for 4 AI platforms.
 
 ### Option C: Install as Codex skill
 
@@ -120,6 +121,8 @@ After 3 sessions, check:
 - [ ] `docs/wiki/current-status.md` reflects actual project state
 - [ ] AI can answer "what did we do last time?" without you re-explaining
 - [ ] Decisions from session 1 are still accessible in session 3
+- [ ] `python3 scripts/ingest_raw.py` can register new raw files without manual manifest grunt work
+- [ ] `python3 scripts/stale_report.py` can tell you what needs recompilation
 
 See `examples/demo-project/` for what a healthy wiki looks like after a few sessions.
 
@@ -159,7 +162,8 @@ bash scripts/upgrade.sh /path/to/your-project
 
 - [UNIVERSAL.md](./UNIVERSAL.md) — Setup guide + migration path + FAQ + templates for every AI
 - [docs/knowledge-system-playbook.md](./docs/knowledge-system-playbook.md) — Full rationale (CN+EN), GitHub/raw split, provenance roadmap
-- [docs/release-notes-v1.1.1.md](./docs/release-notes-v1.1.1.md) — Latest release: doc drift cleanup, safer templates, better team merge guidance
+- [docs/ingest-pipeline.md](./docs/ingest-pipeline.md) — How local raw intake, dedupe, parsing, and stale detection work
+- [docs/release-notes-v1.2.0.md](./docs/release-notes-v1.2.0.md) — Latest release: automated raw intake, stale detection, and a lower-token workflow that actually deserves the name
 - [examples/demo-project/](./examples/demo-project/) — What a bootstrapped project looks like after 3 sessions
 
 ---

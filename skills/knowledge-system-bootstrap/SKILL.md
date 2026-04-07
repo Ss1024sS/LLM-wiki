@@ -9,15 +9,17 @@ Use this when the user wants a project to stop relying on chat memory and start 
 
 ## What this skill does
 
-Scaffolds a complete wiki-first knowledge system (27 files):
+Scaffolds a complete wiki-first knowledge system (29 files):
 
 - `docs/wiki/` — 8 wiki pages with YAML frontmatter (title, source, created, tags, status)
 - `manifests/raw_sources.csv` — raw file index (never raw files themselves)
-- `scripts/` — 8 validation and utility scripts:
+- `scripts/` — 10 validation and utility scripts:
   - `wiki_check.py` — structure + broken links + frontmatter enforcement
+  - `ingest_raw.py` — scan a local raw root, dedupe, update manifest, and build a low-cost intake report
   - `raw_manifest_check.py` — manifest integrity
   - `untracked_raw_check.py` — finds orphan PDFs/Excel/images not in manifest
   - `provenance_check.py` — content hash freshness (source_hash in frontmatter)
+  - `stale_report.py` — report wiki pages that are stale, missing hashes, unresolved, or blocked by manifest status
   - `version_check.py` — auto-checks GitHub for new LLM-wiki releases
   - `upgrade.sh` — one-command upgrade (scripts only, never touches wiki content)
   - `init_raw_root.py` — create local raw directory structure
@@ -51,7 +53,8 @@ Do not use it for tiny throwaway demos.
 2. Preview: `python3 scripts/bootstrap_knowledge_system.py /path/to/repo "Name" --dry-run`
 3. Run: `python3 scripts/bootstrap_knowledge_system.py /path/to/repo "Project Name"`
 4. Initialize local raw root: `python3 scripts/init_raw_root.py`
-5. Validate: `python3 scripts/wiki_check.py && python3 scripts/raw_manifest_check.py`
+5. Intake raw if needed: `python3 scripts/ingest_raw.py`
+6. Validate: `python3 scripts/wiki_check.py && python3 scripts/raw_manifest_check.py && python3 scripts/stale_report.py`
 
 ## Existing repo migration
 

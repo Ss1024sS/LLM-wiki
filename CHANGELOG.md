@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.2.0 (2026-04-07)
+
+Raw intake and stale detection are now first-class instead of hand-wavy future tense.
+
+### Added
+- `scripts/ingest_raw.py` bootstraps and upgrades into every project. It scans a local raw root, computes content hashes, detects duplicates, guesses file kind, updates `manifests/raw_sources.csv`, writes `manifests/raw_index.json`, and emits `manifests/intake_report.md`.
+- `scripts/stale_report.py` is now part of the generated toolchain. It compares wiki frontmatter, manifest status, and current raw hashes to report fresh pages, stale pages, missing hashes, unresolved sources, archived references, and still-uncompiled raw.
+- New doc: `docs/ingest-pipeline.md` explains the local-first ingest flow without pretending this is a graph database startup pitch.
+
+### Changed
+- Bootstrap output is now **29 files** instead of 27.
+- Upgrade flow now carries the new scripts forward for existing projects: `ingest_raw.py`, `stale_report.py`, `version_check.py`, and `upgrade.sh` are all updated in place.
+- `README.md`, `UNIVERSAL.md`, the playbook, and the Codex skill docs now treat intake + stale detection as the default low-token workflow, not optional trivia.
+- `raw_index.json` now includes a stable `summary` block so CI and downstream tooling can inspect ingest results without spelunking every file entry.
+- `stale_report.py` no longer falsely marks a page stale just because its manifest row is still `new`; if the page references the current hash, it is fresh. Unreferenced `new` rows stay visible as `manifest-new`, which is the sane behavior.
+
+### Verified
+- Bootstrap a fresh project: `29` files generated, validators green.
+- Upgrade a `v1.1.1` project with the current local snapshot: new scripts installed, validators still green.
+- Ingest/stale edge cases: duplicate files, referenced `new` files, archived files, and archived wiki references all behave correctly.
+- CI smoke flow now tracks an explicit source file for stale detection instead of mutating the wrong file and hoping for the best.
+
+### Why it matters
+- Less manual manifest grunt work
+- Fewer tokens burned on clerical raw registration
+- Faster “what changed?” checks without rereading raw by hand
+- Better odds that the wiki stays current instead of becoming a polished fossil
+
 ## v1.1.1 (2026-04-07)
 
 ### Fixed

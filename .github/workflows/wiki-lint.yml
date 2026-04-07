@@ -10,11 +10,11 @@ jobs:
       - name: "Bootstrap: create project via root wrapper"
         run: python3 scripts/bootstrap_knowledge_system.py /tmp/smoke-project "Smoke Test Project"
 
-      - name: "Bootstrap: verify 27 files created"
+      - name: "Bootstrap: verify 29 files created"
         run: |
           COUNT=$(find /tmp/smoke-project -type f | wc -l)
           echo "Files created: $COUNT"
-          [ "$COUNT" -eq 27 ] || { echo "FAIL: expected 27 files, got $COUNT"; exit 1; }
+          [ "$COUNT" -eq 29 ] || { echo "FAIL: expected 29 files, got $COUNT"; exit 1; }
 
       # 2. Run ALL validation scripts on the bootstrapped project
       - name: "Validate: wiki_check.py"
@@ -25,6 +25,63 @@ jobs:
 
       - name: "Validate: untracked_raw_check.py"
         run: cd /tmp/smoke-project && python3 scripts/untracked_raw_check.py
+
+      - name: "Ingest: register raw files into manifest and lock"
+        run: |
+          mkdir -p /tmp/smoke-raw/inbox /tmp/smoke-raw/customer_answers
+          printf 'sku,price\nA,10\n' > /tmp/smoke-raw/inbox/spec_matrix.csv
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          path = Path("/tmp/smoke-raw/customer_answers/sample_bundle.zip")
+          with zipfile.ZipFile(path, "w") as zf:
+              zf.writestr("note.txt", "hello")
+          PY
+          cd /tmp/smoke-project && PROJECT_RAW_ROOT=/tmp/smoke-raw python3 scripts/ingest_raw.py
+          grep -q "spec_matrix.csv" /tmp/smoke-project/manifests/raw_sources.csv || { echo "FAIL: ingest did not register csv"; exit 1; }
+          [ -f /tmp/smoke-project/manifests/raw_index.json ] || { echo "FAIL: missing raw_index.json"; exit 1; }
+          [ -f /tmp/smoke-project/manifests/intake_report.md ] || { echo "FAIL: missing intake_report.md"; exit 1; }
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lock = json.loads(Path("/tmp/smoke-project/manifests/raw_index.json").read_text())
+          summary = lock.get("summary") or {}
+          assert summary.get("tracked_files") == 2, summary
+          assert summary.get("new") == 2, summary
+          assert "inbox/spec_matrix.csv" in lock.get("files", {}), lock
+          PY
+
+      - name: "Stale report: fresh page passes"
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          project = Path("/tmp/smoke-project")
+          lock = json.loads((project / "manifests" / "raw_index.json").read_text())
+          rel = "inbox/spec_matrix.csv"
+          meta = lock["files"][rel]
+          page = project / "docs" / "wiki" / "intake-check.md"
+          page.write_text(
+              f"---\n"
+              f"title: Intake Check\n"
+              f"source: {meta['source_id']}\n"
+              f"source_hash: {meta['content_hash']}\n"
+              f"created: 2026-04-07\n"
+              f"status: current\n"
+              f"---\n\n"
+              f"# Intake Check\n\n"
+              f"Tracks {rel}.\n",
+              encoding="utf-8",
+          )
+          index = project / "docs" / "wiki" / "index.md"
+          index.write_text(index.read_text(encoding="utf-8") + "- [intake-check.md](./intake-check.md)\n", encoding="utf-8")
+          PY
+          cd /tmp/smoke-project && PROJECT_RAW_ROOT=/tmp/smoke-raw python3 scripts/stale_report.py
+
+      - name: "Stale report: source change gets caught"
+        run: |
+          printf 'B,11\n' >> /tmp/smoke-raw/inbox/spec_matrix.csv
+          cd /tmp/smoke-project && PROJECT_RAW_ROOT=/tmp/smoke-raw python3 scripts/stale_report.py 2>&1 && exit 1 || echo "PASS: stale source caught"
 
       # 3. Test frontmatter validation catches missing frontmatter
       - name: "Validate: frontmatter enforcement"
@@ -66,7 +123,7 @@ jobs:
           done
           echo "PASS: all 4 platform configs present"
 
-      # 9. Verify demo project structure
+      # 10. Verify demo project structure
       - name: "Demo: validate example project"
         run: |
           for f in CLAUDE.md AGENTS.md .cursorrules .windsurfrules; do

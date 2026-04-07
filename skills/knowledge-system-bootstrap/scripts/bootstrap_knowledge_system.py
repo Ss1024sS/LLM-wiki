@@ -5,7 +5,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 def slugify(value: str) -> str:
@@ -15,7 +15,7 @@ def slugify(value: str) -> str:
 
 
 WIKI_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.1.0
+# llm-wiki-version: 1.2.0
 
 import re
 import sys
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
 
 RAW_MANIFEST_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.1.0
+# llm-wiki-version: 1.2.0
 
 import csv
 import os
@@ -225,8 +225,491 @@ if __name__ == "__main__":
 """
 
 
+INGEST_RAW = """from __future__ import annotations
+# llm-wiki-version: 1.2.0
+
+import argparse
+import csv
+import hashlib
+import json
+import os
+import tarfile
+import zipfile
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+from xml.etree import ElementTree as ET
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = ROOT / "manifests" / "raw_sources.csv"
+LOCK_FILE = ROOT / "manifests" / "raw_index.json"
+REPORT_FILE = ROOT / "manifests" / "intake_report.md"
+DEFAULT_RAW_ROOT = (ROOT.parent / "__RAW_ROOT_NAME__").resolve()
+EXPECTED_COLUMNS = [
+    "source_id",
+    "company",
+    "vendor",
+    "kind",
+    "filename",
+    "raw_rel_path",
+    "status",
+    "compiled_into",
+    "notes",
+]
+TRACKED_EXTENSIONS = {
+    ".pdf", ".md", ".txt",
+    ".xlsx", ".xls", ".xlsm", ".csv", ".tsv",
+    ".doc", ".docx", ".ppt", ".pptx",
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg",
+    ".zip", ".rar", ".7z", ".tar", ".gz",
+}
+SKIP_DIRS = {
+    ".git", ".svn", "__pycache__", ".DS_Store",
+    "node_modules", ".venv", "venv",
+}
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def sha256_prefix(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()[:16]
+
+
+def safe_read_text(path: Path, limit: int = 2000) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")[:limit]
+    except Exception:
+        return ""
+
+
+def first_nonempty_line(text: str) -> str:
+    for line in text.splitlines():
+        stripped = line.strip(" #\t-")
+        if stripped:
+            return stripped[:120]
+    return ""
+
+
+def detect_kind(path: Path) -> str:
+    ext = path.suffix.lower()
+    if ext in {".xlsx", ".xls", ".xlsm", ".csv", ".tsv"}:
+        return "spreadsheet"
+    if ext in {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".md", ".txt"}:
+        return "document"
+    if ext in {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}:
+        return "image"
+    if ext in {".zip", ".rar", ".7z", ".tar", ".gz"}:
+        return "archive"
+    return "raw"
+
+
+def summarize_csv(path: Path) -> dict[str, object]:
+    delimiter = "," if path.suffix.lower() == ".csv" else "\\t"
+    headers: list[str] = []
+    row_count = 0
+    with path.open("r", encoding="utf-8-sig", errors="ignore", newline="") as handle:
+        reader = csv.reader(handle, delimiter=delimiter)
+        for row in reader:
+            row_count += 1
+            if not headers and any(cell.strip() for cell in row):
+                headers = [cell.strip()[:60] for cell in row[:8]]
+    return {
+        "parser": "csv-local",
+        "summary": f"{row_count} row(s); headers: {', '.join(headers) if headers else 'none'}",
+        "metadata": {"row_count": row_count, "headers": headers, "delimiter": delimiter},
+    }
+
+
+def summarize_xlsx(path: Path) -> dict[str, object]:
+    sheet_names: list[str] = []
+    try:
+        with zipfile.ZipFile(path) as zf:
+            with zf.open("xl/workbook.xml") as handle:
+                root = ET.fromstring(handle.read())
+            sheet_names = [node.attrib.get("name", "") for node in root.findall(".//{*}sheet") if node.attrib.get("name")]
+    except Exception:
+        pass
+    return {
+        "parser": "xlsx-local",
+        "summary": f"{len(sheet_names)} sheet(s): {', '.join(sheet_names[:6]) if sheet_names else 'unknown'}",
+        "metadata": {"sheet_names": sheet_names},
+    }
+
+
+def summarize_docx(path: Path) -> dict[str, object]:
+    paragraph_count = 0
+    try:
+        with zipfile.ZipFile(path) as zf:
+            with zf.open("word/document.xml") as handle:
+                root = ET.fromstring(handle.read())
+            paragraph_count = len(root.findall(".//{*}p"))
+    except Exception:
+        pass
+    return {
+        "parser": "docx-local",
+        "summary": f"{paragraph_count} paragraph block(s)",
+        "metadata": {"paragraph_blocks": paragraph_count},
+    }
+
+
+def summarize_pptx(path: Path) -> dict[str, object]:
+    slide_count = 0
+    try:
+        with zipfile.ZipFile(path) as zf:
+            slide_count = len([name for name in zf.namelist() if name.startswith("ppt/slides/slide") and name.endswith(".xml")])
+    except Exception:
+        pass
+    return {
+        "parser": "pptx-local",
+        "summary": f"{slide_count} slide(s)",
+        "metadata": {"slide_count": slide_count},
+    }
+
+
+def summarize_pdf(path: Path) -> dict[str, object]:
+    raw = path.read_bytes()
+    page_count = raw.count(b"/Type /Page")
+    return {
+        "parser": "pdf-local",
+        "summary": f"{page_count or 'unknown'} page(s)",
+        "metadata": {"page_count": int(page_count)},
+    }
+
+
+def image_size(path: Path) -> tuple[int | None, int | None]:
+    raw = path.read_bytes()[:64]
+    if raw.startswith(b"\\x89PNG\\r\\n\\x1a\\n") and len(raw) >= 24:
+        return int.from_bytes(raw[16:20], "big"), int.from_bytes(raw[20:24], "big")
+    if raw[:6] in {b"GIF87a", b"GIF89a"} and len(raw) >= 10:
+        return int.from_bytes(raw[6:8], "little"), int.from_bytes(raw[8:10], "little")
+    if raw.startswith(b"BM") and len(raw) >= 26:
+        return int.from_bytes(raw[18:22], "little"), int.from_bytes(raw[22:26], "little")
+    if raw.startswith(b"\\xff\\xd8"):
+        with path.open("rb") as handle:
+            handle.read(2)
+            while True:
+                marker_prefix = handle.read(1)
+                if marker_prefix != b"\\xff":
+                    break
+                marker = handle.read(1)
+                while marker == b"\\xff":
+                    marker = handle.read(1)
+                if marker in {b"\\xc0", b"\\xc1", b"\\xc2", b"\\xc3", b"\\xc5", b"\\xc6", b"\\xc7", b"\\xc9", b"\\xca", b"\\xcb", b"\\xcd", b"\\xce", b"\\xcf"}:
+                    _length = int.from_bytes(handle.read(2), "big")
+                    handle.read(1)
+                    height = int.from_bytes(handle.read(2), "big")
+                    width = int.from_bytes(handle.read(2), "big")
+                    return width, height
+                if marker in {b"\\xd8", b"\\xd9"}:
+                    continue
+                seg_length = int.from_bytes(handle.read(2), "big")
+                handle.seek(seg_length - 2, 1)
+    return None, None
+
+
+def summarize_image(path: Path) -> dict[str, object]:
+    width, height = image_size(path)
+    dims = f"{width}x{height}" if width and height else "unknown"
+    return {
+        "parser": "image-local",
+        "summary": f"dimensions: {dims}",
+        "metadata": {"width": width, "height": height},
+    }
+
+
+def summarize_archive(path: Path) -> dict[str, object]:
+    ext = path.suffix.lower()
+    entry_count = None
+    parser = "archive-local"
+    try:
+        if ext == ".zip":
+            with zipfile.ZipFile(path) as zf:
+                entry_count = len(zf.namelist())
+        elif ext in {".tar", ".gz"} or path.name.endswith(".tar.gz"):
+            with tarfile.open(path) as tf:
+                entry_count = len(tf.getmembers())
+    except Exception:
+        entry_count = None
+    return {
+        "parser": parser,
+        "summary": f"archive entries: {entry_count if entry_count is not None else 'unknown'}",
+        "metadata": {"entry_count": entry_count, "format": ext.lstrip('.')},
+    }
+
+
+def summarize_plaintext(path: Path) -> dict[str, object]:
+    text = safe_read_text(path)
+    summary = first_nonempty_line(text) or "no preview"
+    return {
+        "parser": "text-local",
+        "summary": summary,
+        "metadata": {"preview": summary},
+    }
+
+
+def summarize_file(path: Path) -> dict[str, object]:
+    ext = path.suffix.lower()
+    if ext in {".csv", ".tsv"}:
+        return summarize_csv(path)
+    if ext in {".xlsx", ".xlsm"}:
+        return summarize_xlsx(path)
+    if ext == ".docx":
+        return summarize_docx(path)
+    if ext == ".pptx":
+        return summarize_pptx(path)
+    if ext == ".pdf":
+        return summarize_pdf(path)
+    if ext in {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}:
+        return summarize_image(path)
+    if ext in {".zip", ".rar", ".7z", ".tar", ".gz"} or path.name.endswith(".tar.gz"):
+        return summarize_archive(path)
+    return summarize_plaintext(path)
+
+
+def load_manifest() -> list[dict[str, str]]:
+    if not MANIFEST.exists():
+        raise FileNotFoundError(f"manifest missing: {MANIFEST}")
+    with MANIFEST.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if reader.fieldnames != EXPECTED_COLUMNS:
+            raise ValueError(f"manifest columns mismatch: expected {EXPECTED_COLUMNS}, got {reader.fieldnames}")
+        return [{key: (value or "") for key, value in row.items()} for row in reader]
+
+
+def write_manifest(rows: list[dict[str, str]]) -> None:
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    with MANIFEST.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=EXPECTED_COLUMNS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in EXPECTED_COLUMNS})
+
+
+def load_lock() -> dict[str, object]:
+    if not LOCK_FILE.exists():
+        return {"files": {}}
+    try:
+        return json.loads(LOCK_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"files": {}}
+
+
+def write_lock(payload: dict[str, object]) -> None:
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    LOCK_FILE.write_text(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+
+
+def next_source_id(existing_ids: set[str], content_hash: str) -> str:
+    base = f"src_{content_hash[:10]}"
+    candidate = base
+    index = 2
+    while candidate in existing_ids:
+        candidate = f"{base}_{index}"
+        index += 1
+    return candidate
+
+
+def build_report(
+    raw_root: Path,
+    rows: list[dict[str, str]],
+    kinds: Counter[str],
+    new_paths: list[str],
+    changed_paths: list[str],
+    archived_paths: list[str],
+    duplicate_paths: list[str],
+) -> str:
+    def bullets(items: list[str]) -> str:
+        if not items:
+            return "- none\\n"
+        return "".join(f"- `{item}`\\n" for item in items[:20])
+
+    lines = [
+        "# Raw Intake Report",
+        "",
+        f"- generated_at: `{utc_now()}`",
+        f"- raw_root: `{raw_root}`",
+        f"- manifest_rows: `{len(rows)}`",
+        f"- new: `{len(new_paths)}`",
+        f"- changed: `{len(changed_paths)}`",
+        f"- archived: `{len(archived_paths)}`",
+        f"- duplicates: `{len(duplicate_paths)}`",
+        "",
+        "## Kind Summary",
+        "",
+    ]
+    if kinds:
+        for kind, count in sorted(kinds.items()):
+            lines.append(f"- `{kind}`: {count}")
+    else:
+        lines.append("- none")
+    lines.extend([
+        "",
+        "## New Files",
+        "",
+        bullets(sorted(new_paths)),
+        "",
+        "## Changed Files",
+        "",
+        bullets(sorted(changed_paths)),
+        "",
+        "## Archived Files",
+        "",
+        bullets(sorted(archived_paths)),
+        "",
+        "## Duplicate Files",
+        "",
+        bullets(sorted(duplicate_paths)),
+    ])
+    return "\\n".join(lines).rstrip() + "\\n"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Scan a local raw root, update the manifest, and record low-cost structural metadata.")
+    parser.add_argument("--raw-root", default=os.environ.get("PROJECT_RAW_ROOT", str(DEFAULT_RAW_ROOT)), help="Local raw root path")
+    parser.add_argument("--report-file", default=str(REPORT_FILE), help="Markdown report output path")
+    parser.add_argument("--dry-run", action="store_true", help="Preview changes without writing manifest or lock files")
+    args = parser.parse_args()
+
+    raw_root = Path(args.raw_root).expanduser().resolve()
+    if not raw_root.exists():
+        print(f"ingest_raw: raw root does not exist: {raw_root}")
+        return 1
+
+    rows = load_manifest()
+    previous_lock = load_lock().get("files", {})
+    rows_by_path = {row["raw_rel_path"]: row for row in rows if row.get("raw_rel_path")}
+    existing_ids = {row["source_id"] for row in rows if row.get("source_id")}
+    seen_paths: set[str] = set()
+    kinds: Counter[str] = Counter()
+    new_paths: list[str] = []
+    changed_paths: list[str] = []
+    archived_paths: list[str] = []
+    lock_entries: dict[str, object] = {}
+    hash_to_primary: dict[str, str] = {}
+    duplicate_paths: list[str] = []
+
+    candidates: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(raw_root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
+        for name in filenames:
+            if name.startswith("."):
+                continue
+            path = Path(dirpath) / name
+            ext = path.suffix.lower()
+            if ext in TRACKED_EXTENSIONS or path.name.endswith(".tar.gz"):
+                candidates.append(path)
+
+    for path in sorted(candidates):
+        rel = path.relative_to(raw_root).as_posix()
+        seen_paths.add(rel)
+        content_hash = sha256_prefix(path)
+        kind = detect_kind(path)
+        kinds[kind] += 1
+        summary_payload = summarize_file(path)
+        existing = rows_by_path.get(rel)
+        old_hash = None
+        if isinstance(previous_lock, dict) and rel in previous_lock:
+            old_hash = previous_lock[rel].get("content_hash")
+
+        if existing is None:
+            source_id = next_source_id(existing_ids, content_hash)
+            existing_ids.add(source_id)
+            row = {
+                "source_id": source_id,
+                "company": "",
+                "vendor": "",
+                "kind": kind,
+                "filename": path.name,
+                "raw_rel_path": rel,
+                "status": "new",
+                "compiled_into": "",
+                "notes": "",
+            }
+            rows.append(row)
+            rows_by_path[rel] = row
+            new_paths.append(rel)
+            existing = row
+        else:
+            existing["kind"] = kind
+            existing["filename"] = path.name
+            if old_hash and old_hash != content_hash and existing.get("status") != "archived":
+                existing["status"] = "new"
+                changed_paths.append(rel)
+
+        primary = hash_to_primary.setdefault(content_hash, rel)
+        duplicate_of = None if primary == rel else rows_by_path[primary]["source_id"]
+        if duplicate_of:
+            duplicate_paths.append(rel)
+
+        lock_entries[rel] = {
+            "source_id": existing["source_id"],
+            "filename": path.name,
+            "kind": kind,
+            "content_hash": content_hash,
+            "size_bytes": path.stat().st_size,
+            "modified_at": datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).replace(microsecond=0).isoformat(),
+            "parser": summary_payload["parser"],
+            "summary": summary_payload["summary"],
+            "metadata": summary_payload["metadata"],
+            "duplicate_of": duplicate_of,
+        }
+
+    for row in rows:
+        rel = row.get("raw_rel_path", "")
+        if rel and rel not in seen_paths and row.get("status") != "archived":
+            row["status"] = "archived"
+            archived_paths.append(rel)
+
+    rows.sort(key=lambda row: (row.get("status", ""), row.get("raw_rel_path", "")))
+    report_text = build_report(raw_root, rows, kinds, new_paths, changed_paths, archived_paths, duplicate_paths)
+
+    if args.dry_run:
+        print("ingest_raw: DRY RUN")
+        print(report_text)
+        return 0
+
+    write_manifest(rows)
+    write_lock({
+        "llm_wiki_version": "1.2.0",
+        "generated_at": utc_now(),
+        "raw_root": str(raw_root),
+        "summary": {
+            "tracked_files": len(candidates),
+            "manifest_rows": len(rows),
+            "new": len(new_paths),
+            "changed": len(changed_paths),
+            "archived": len(archived_paths),
+            "duplicates": len(duplicate_paths),
+            "kinds": dict(sorted(kinds.items())),
+        },
+        "files": lock_entries,
+    })
+    report_path = Path(args.report_file).expanduser().resolve()
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(report_text, encoding="utf-8")
+
+    print(f"ingest_raw: OK ({len(candidates)} tracked file(s))")
+    print(f"- manifest: {MANIFEST}")
+    print(f"- lock: {LOCK_FILE}")
+    print(f"- report: {report_path}")
+    print(f"- new: {len(new_paths)} | changed: {len(changed_paths)} | archived: {len(archived_paths)} | duplicates: {len(duplicate_paths)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+"""
+
+
 UNTRACKED_RAW_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.1.0
+# llm-wiki-version: 1.2.0
 
 import csv
 import os
@@ -309,7 +792,7 @@ if __name__ == "__main__":
 
 
 PROVENANCE_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.1.0
+# llm-wiki-version: 1.2.0
 
 import csv
 import hashlib
@@ -447,8 +930,232 @@ if __name__ == "__main__":
 """
 
 
+STALE_REPORT = """from __future__ import annotations
+# llm-wiki-version: 1.2.0
+
+import argparse
+import csv
+import hashlib
+import json
+import os
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+WIKI_ROOT = ROOT / "docs" / "wiki"
+MANIFEST = ROOT / "manifests" / "raw_sources.csv"
+LOCK_FILE = ROOT / "manifests" / "raw_index.json"
+REPORT_FILE = ROOT / "manifests" / "stale_report.md"
+DEFAULT_RAW_ROOT = (ROOT.parent / "__RAW_ROOT_NAME__").resolve()
+FRONTMATTER_RE = re.compile(r"^---\\n(.*?)\\n---", re.DOTALL)
+SKIP_FILES = {"index.md", "log.md", "README.md", "SCHEMA.md"}
+
+
+def sha256_prefix(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()[:16]
+
+
+def parse_frontmatter(path: Path) -> dict[str, str]:
+    text = path.read_text(encoding="utf-8")
+    match = FRONTMATTER_RE.match(text)
+    if not match:
+        return {}
+    result: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if ":" in line:
+            key, value = line.split(":", 1)
+            result[key.strip()] = value.strip()
+    return result
+
+
+def load_manifest() -> list[dict[str, str]]:
+    if not MANIFEST.exists():
+        return []
+    with MANIFEST.open("r", encoding="utf-8-sig", newline="") as handle:
+        return [{key: (value or "") for key, value in row.items()} for row in csv.DictReader(handle)]
+
+
+def load_lock() -> dict[str, dict]:
+    if not LOCK_FILE.exists():
+        return {}
+    try:
+        data = json.loads(LOCK_FILE.read_text(encoding="utf-8"))
+        files = data.get("files", {})
+        return files if isinstance(files, dict) else {}
+    except Exception:
+        return {}
+
+
+def resolve_row(source_value: str, rows: list[dict[str, str]]) -> dict[str, str] | None:
+    for row in rows:
+        if source_value == row.get("source_id") or source_value == row.get("raw_rel_path"):
+            return row
+    for row in rows:
+        if row.get("source_id") and row["source_id"] in source_value:
+            return row
+        if row.get("raw_rel_path") and source_value.endswith(row["raw_rel_path"]):
+            return row
+    return None
+
+
+def build_report(
+    raw_root: Path | None,
+    session_exempt: int,
+    fresh: list[str],
+    stale: list[str],
+    missing_hash: list[str],
+    unresolved: list[str],
+    archived_refs: list[str],
+    manifest_new: list[str],
+) -> str:
+    def section(title: str, items: list[str]) -> list[str]:
+        lines = ["", f"## {title}", ""]
+        if not items:
+            lines.append("- none")
+        else:
+            lines.extend(f"- `{item}`" for item in items[:40])
+        return lines
+
+    lines = [
+        "# Stale Report",
+        "",
+        f"- generated_at: `{datetime.now(timezone.utc).replace(microsecond=0).isoformat()}`",
+        f"- raw_root: `{raw_root}`" if raw_root else "- raw_root: `not configured`",
+        f"- fresh_pages: `{len(fresh)}`",
+        f"- stale_pages: `{len(stale)}`",
+        f"- missing_hash: `{len(missing_hash)}`",
+        f"- unresolved_sources: `{len(unresolved)}`",
+        f"- archived_refs: `{len(archived_refs)}`",
+        f"- manifest_new: `{len(manifest_new)}`",
+        f"- session_exempt: `{session_exempt}`",
+    ]
+    lines += section("Fresh Pages", fresh)
+    lines += section("Stale Pages", stale)
+    lines += section("Pages Missing source_hash", missing_hash)
+    lines += section("Pages With Unresolved source", unresolved)
+    lines += section("Pages Pointing At Archived Sources", archived_refs)
+    lines += section("Manifest Rows Still Marked new", manifest_new)
+    return "\\n".join(lines).rstrip() + "\\n"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Report stale wiki pages and raw files that still need compilation.")
+    parser.add_argument("--raw-root", default=os.environ.get("PROJECT_RAW_ROOT", ""), help="Local raw root path. If empty, falls back to the default sibling raw root when present.")
+    parser.add_argument("--report-file", default=str(REPORT_FILE), help="Markdown report output path")
+    parser.add_argument("--dry-run", action="store_true", help="Print the report without writing it")
+    args = parser.parse_args()
+
+    raw_root = None
+    if args.raw_root:
+        candidate = Path(args.raw_root).expanduser().resolve()
+        if candidate.exists():
+            raw_root = candidate
+    elif DEFAULT_RAW_ROOT.exists():
+        raw_root = DEFAULT_RAW_ROOT
+
+    rows = load_manifest()
+    lock = load_lock()
+    fresh: list[str] = []
+    stale: list[str] = []
+    missing_hash: list[str] = []
+    unresolved: list[str] = []
+    archived_refs: list[str] = []
+    referenced_source_ids: set[str] = set()
+    referenced_paths: set[str] = set()
+    session_exempt = 0
+
+    for path in sorted(WIKI_ROOT.rglob("*.md")):
+        if path.name in SKIP_FILES:
+            continue
+        fm = parse_frontmatter(path)
+        if not fm:
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        source = fm.get("source", "")
+        source_hash = fm.get("source_hash", "")
+        if source == "session":
+            session_exempt += 1
+            continue
+        if not source_hash:
+            missing_hash.append(rel)
+            continue
+
+        row = resolve_row(source, rows)
+        if not row:
+            unresolved.append(rel)
+            continue
+
+        if row.get("source_id"):
+            referenced_source_ids.add(row["source_id"])
+        if row.get("raw_rel_path"):
+            referenced_paths.add(row["raw_rel_path"])
+
+        if row.get("status") == "archived":
+            archived_refs.append(rel)
+            continue
+
+        current_hash = ""
+        if raw_root:
+            source_path = raw_root / row["raw_rel_path"]
+            if source_path.exists():
+                current_hash = sha256_prefix(source_path)
+        if not current_hash and row["raw_rel_path"] in lock:
+            current_hash = lock[row["raw_rel_path"]].get("content_hash", "")
+        if not current_hash:
+            unresolved.append(rel)
+            continue
+        if current_hash != source_hash:
+            stale.append(f"{rel} <- {row['raw_rel_path']} ({source_hash} -> {current_hash})")
+        else:
+            fresh.append(rel)
+
+    manifest_new = [
+        row["raw_rel_path"]
+        for row in rows
+        if row.get("status") == "new"
+        and row.get("raw_rel_path")
+        and row.get("source_id") not in referenced_source_ids
+        and row.get("raw_rel_path") not in referenced_paths
+    ]
+
+    report_text = build_report(raw_root, session_exempt, fresh, stale, missing_hash, unresolved, archived_refs, manifest_new)
+
+    if args.dry_run:
+        print(report_text)
+    else:
+        report_path = Path(args.report_file).expanduser().resolve()
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report_text, encoding="utf-8")
+        print(f"stale_report: wrote {report_path}")
+
+    if stale or missing_hash or unresolved or archived_refs:
+        print(
+            f"stale_report: ATTENTION ({len(stale)} stale, {len(missing_hash)} missing_hash, "
+            f"{len(unresolved)} unresolved, {len(archived_refs)} archived_refs)"
+        )
+        return 1
+
+    print(
+        f"stale_report: OK ({len(fresh)} fresh, {len(manifest_new)} manifest-new, "
+        f"{session_exempt} session-exempt)"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+"""
+
+
 VERSION_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.1.0
+# llm-wiki-version: 1.2.0
 
 import json
 import re
@@ -459,6 +1166,11 @@ from pathlib import Path
 GITHUB_API = "https://api.github.com/repos/Ss1024sS/LLM-wiki/releases/latest"
 VERSION_RE = re.compile(r"# llm-wiki-version:\\s*(\\S+)")
 SCRIPTS_DIR = Path(__file__).resolve().parent
+
+
+def parse_version(value: str) -> tuple[int, ...]:
+    parts = re.findall(r"\\d+", value)
+    return tuple(int(part) for part in parts[:3]) if parts else (0,)
 
 
 def get_local_version() -> str:
@@ -491,7 +1203,7 @@ def main() -> int:
     if local == "unknown":
         print(f"[llm-wiki] Could not detect local version. Latest is v{remote}")
         return 0
-    if remote and local != remote:
+    if parse_version(remote) > parse_version(local):
         print(f"[llm-wiki] Update available: v{local} -> v{remote}")
         print(f"[llm-wiki] Run: bash scripts/upgrade.sh")
         if release_url:
@@ -722,7 +1434,20 @@ def main() -> int:
 包括但不限于：PDF、Excel、截图、客户发来的附件、聊天图片、CAD图纸、压缩包。
 不在里面 → 先登记再用。这步最容易漏。
 
-定期跑 `python3 scripts/untracked_raw_check.py` 找遗漏。
+少量文件可以手填 manifest，大量新文件直接跑：
+
+```bash
+python3 scripts/ingest_raw.py
+```
+
+定期跑：
+
+```bash
+python3 scripts/untracked_raw_check.py
+python3 scripts/stale_report.py
+```
+
+前者找漏登 raw，后者找已经过期的 wiki 页面。
 
 ## 2. 默认范式
 
@@ -779,7 +1504,7 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 Normal operations are cheap. Full audit/recompilation are disaster recovery, not regular workflow.
 - Session start: read 3 files (index, status, log). ~2K tokens. Never read all pages upfront.
 - During work: read specific pages one at a time, only when needed.
-- Structural checks: Python scripts (wiki_check.py, untracked_raw_check.py) — zero LLM tokens.
+- Structural checks: Python scripts (`wiki_check.py`, `raw_manifest_check.py`, `untracked_raw_check.py`, `stale_report.py`, `provenance_check.py`) — zero LLM tokens.
 - If every session does incremental writeback, you never need full audit or recompilation.
 
 ### Rules
@@ -922,6 +1647,15 @@ raw 根目录建议：
 ```
 
 GitHub 里只保留 manifest 和编译结果。
+
+少量 raw 可以手工登记；新文件一多，直接跑：
+
+```bash
+python3 scripts/ingest_raw.py
+python3 scripts/stale_report.py
+```
+
+前者把本地 raw 编成 manifest + lock + intake report，后者告诉你哪些 wiki 页面已经 stale。
 """,
         target / "docs" / "wiki" / "github-and-raw-strategy.md": f"""---
 title: GitHub and Raw Strategy
@@ -959,13 +1693,15 @@ status: current
         target / "manifests" / "raw_sources.csv": "source_id,company,vendor,kind,filename,raw_rel_path,status,compiled_into,notes\n",
         target / "scripts" / "wiki_check.py": WIKI_CHECK,
         target / "scripts" / "raw_manifest_check.py": RAW_MANIFEST_CHECK,
+        target / "scripts" / "ingest_raw.py": INGEST_RAW.replace("__RAW_ROOT_NAME__", raw_root_name),
         target / "scripts" / "untracked_raw_check.py": UNTRACKED_RAW_CHECK,
         target / "scripts" / "provenance_check.py": PROVENANCE_CHECK,
+        target / "scripts" / "stale_report.py": STALE_REPORT.replace("__RAW_ROOT_NAME__", raw_root_name),
         target / "scripts" / "init_raw_root.py": INIT_RAW_ROOT.format(raw_root_name=raw_root_name),
         target / "scripts" / "export_memory_repo.py": EXPORT_MEMORY_REPO,
         target / "scripts" / "version_check.py": VERSION_CHECK,
         target / "scripts" / "upgrade.sh": """#!/usr/bin/env bash
-# llm-wiki-version: 1.1.0
+# llm-wiki-version: 1.2.0
 # Upgrade LLM-wiki scripts to latest version.
 # Updates validation scripts and CI only. Never touches wiki content.
 set -euo pipefail
@@ -991,6 +1727,7 @@ python3 scripts/wiki_check.py
 python3 scripts/raw_manifest_check.py
 python3 scripts/untracked_raw_check.py
 python3 scripts/provenance_check.py
+python3 scripts/stale_report.py
 ```
 
 If any check fails, explain what's wrong and how to fix it.
@@ -1015,8 +1752,9 @@ After upgrade, run `/wiki-check` to verify everything still passes.
 1. Read `docs/wiki/index.md` and list all pages
 2. Read the last 3 entries from `docs/wiki/log.md`
 3. Read `docs/wiki/current-status.md` and summarize
-4. Run `python3 scripts/version_check.py` to check for updates
-5. Report a one-paragraph summary of project state
+4. Run `python3 scripts/stale_report.py --dry-run` and report whether anything is stale
+5. Run `python3 scripts/version_check.py` to check for updates
+6. Report a one-paragraph summary of project state
 """,
         target / ".cursorrules": f"""This project ({project_name}) uses a wiki-first knowledge system.
 

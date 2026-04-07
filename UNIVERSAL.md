@@ -72,6 +72,15 @@ Copy the protocol below into your platform's config file. This is what makes the
 
 That's it. The AI will read the wiki at session start, update it during work, and write a log entry at session end. Knowledge compounds automatically.
 
+When a batch of new raw files arrives, don't hand-edit the manifest like a martyr. Run:
+
+```bash
+python3 scripts/ingest_raw.py
+python3 scripts/stale_report.py
+```
+
+The first updates the raw index and low-cost structural metadata. The second tells you what has gone stale.
+
 ---
 
 ## Platform-Specific Config Templates
@@ -97,7 +106,7 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 
 ### During Work
 - New decision made → update the relevant wiki page immediately
-- **Any file mentioned, received, referenced, or saved — including screenshots, customer attachments, chat images, debug captures, PDFs, Excel, CAD files, archives → check `manifests/raw_sources.csv` first. Not listed → register it before proceeding.** This is the single most commonly skipped step.
+- **Any file mentioned, received, referenced, or saved — including screenshots, customer attachments, chat images, debug captures, PDFs, Excel, CAD files, archives → check `manifests/raw_sources.csv` first. Not listed → register it before proceeding.** For batches, run `python3 scripts/ingest_raw.py` instead of hand-editing rows one by one. This is the single most commonly skipped step.
 - Task completed → update `docs/wiki/current-status.md`
 
 ### Session End
@@ -114,7 +123,7 @@ This project uses a wiki-first knowledge system. Knowledge lives in `docs/wiki/`
 Normal operations are cheap. The wiki is designed for incremental updates, not bulk reads.
 - **Session start**: read 3 files (index, status, log). ~2K tokens.
 - **During work**: read specific pages one at a time, only when needed.
-- **Structural checks**: `wiki_check.py`, `raw_manifest_check.py`, `untracked_raw_check.py` are Python scripts. Zero LLM tokens.
+- **Structural checks**: `wiki_check.py`, `raw_manifest_check.py`, `untracked_raw_check.py`, `provenance_check.py`, and `stale_report.py` are Python scripts. Zero LLM tokens.
 - **Never read all wiki pages upfront.** If the protocol is followed, you never need to.
 
 Full audit and recompilation are **disaster recovery**, not normal workflow:
@@ -240,7 +249,12 @@ Under ~100 documents, LLMs reading files directly outperforms vector retrieval. 
 
 **Q: How does this handle stale knowledge?**
 
-Current approach: `wiki_check.py` validates structure (broken links, missing pages). For content freshness, the log and manifest track when each source was last compiled. Future direction: source provenance with content hashes — every compiled fact records which source file produced it and its hash at compilation time. Query-time validation checks if the source still matches. See the playbook for the roadmap.
+Current approach is two-layered:
+
+- `provenance_check.py` validates page-level `source_hash` for source-backed wiki pages
+- `stale_report.py` compares current raw hashes, manifest status, and wiki frontmatter to tell you what needs recompilation
+
+Still local. Still deterministic. Still cheap.
 
 **Q: What about multiple people / teams?**
 

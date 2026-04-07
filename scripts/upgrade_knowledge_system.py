@@ -8,9 +8,13 @@ Usage:
 
 What gets UPDATED (safe to overwrite):
   - scripts/wiki_check.py
+  - scripts/ingest_raw.py
   - scripts/raw_manifest_check.py
   - scripts/untracked_raw_check.py
   - scripts/provenance_check.py
+  - scripts/stale_report.py
+  - scripts/version_check.py
+  - scripts/upgrade.sh
   - scripts/init_raw_root.py
   - scripts/export_memory_repo.py
   - .github/workflows/wiki-lint.yml
@@ -98,11 +102,15 @@ def main() -> int:
         updated = []
         safe_files = [
             "scripts/wiki_check.py",
+            "scripts/ingest_raw.py",
             "scripts/raw_manifest_check.py",
             "scripts/untracked_raw_check.py",
             "scripts/provenance_check.py",
+            "scripts/stale_report.py",
             "scripts/init_raw_root.py",
             "scripts/export_memory_repo.py",
+            "scripts/version_check.py",
+            "scripts/upgrade.sh",
             ".github/workflows/wiki-lint.yml",
         ]
 

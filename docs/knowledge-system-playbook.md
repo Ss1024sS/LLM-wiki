@@ -135,6 +135,47 @@ manifest 是 raw 的目录卡，不是 raw 本体。
 - 它有没有被编译
 - 它现在到了哪一层
 
+## raw intake 应该自动，不该靠苦力
+
+如果每来一批 PDF / Excel / 图片，都要人手改 `raw_sources.csv`，这套系统迟早会退化成表格苦工。
+
+正确顺序是：
+
+1. 扫描本地 raw 根目录
+2. 自动算 hash
+3. 自动判重
+4. 自动猜文件类型
+5. 自动补 manifest 行
+6. 自动产出 intake report
+
+也就是：
+
+```bash
+python3 scripts/ingest_raw.py
+```
+
+这一步必须是本地、确定性的、低 token 的。别把“登记新文件”也扔给 LLM 当客服。
+
+## stale intelligence 应该默认存在
+
+只有 provenance 还不够，系统还得主动告诉你哪些 wiki 结论已经过期。
+
+这就是：
+
+```bash
+python3 scripts/stale_report.py
+```
+
+它会直接摊出来：
+
+- 哪些页面 fresh
+- 哪些页面 stale
+- 哪些页面缺 `source_hash`
+- 哪些页面引用了 archived raw
+- 哪些 raw 还停在 `status=new`
+
+这才算“默认智能”，不是把 stale 检查藏成专家模式。
+
 ## 每个新 session 的默认行为
 
 只要不是纯闲聊，默认先读：
