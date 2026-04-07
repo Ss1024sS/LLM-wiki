@@ -1,7 +1,6 @@
 ---
 title: Sources and Data
 source: session
-source_hash: 0000000000000000
 created: 2026-04-01
 tags: [data, raw]
 status: current

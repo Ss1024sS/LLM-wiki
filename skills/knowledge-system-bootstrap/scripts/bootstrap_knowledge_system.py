@@ -356,6 +356,7 @@ def main() -> int:
     fresh = 0
     stale: list[tuple[str, str, str]] = []
     no_hash: list[str] = []
+    session_exempt = 0
 
     for path in sorted(WIKI_ROOT.rglob("*.md")):
         if path.name in SKIP_FILES:
@@ -366,6 +367,16 @@ def main() -> int:
             continue
 
         fm = m.group(1)
+        source_line = ""
+        for line in fm.splitlines():
+            if line.startswith("source:"):
+                source_line = line.split(":", 1)[1].strip()
+                break
+
+        if source_line == "session":
+            session_exempt += 1
+            continue
+
         hash_match = SOURCE_HASH_RE.search(fm)
         if not hash_match:
             no_hash.append(path.relative_to(ROOT).as_posix())
@@ -375,13 +386,7 @@ def main() -> int:
         checked += 1
 
         # Find the source file
-        source_line = ""
-        for line in fm.splitlines():
-            if line.startswith("source:"):
-                source_line = line.split(":", 1)[1].strip()
-                break
-
-        if source_line == "session" or not source_line:
+        if not source_line:
             fresh += 1
             continue
 
@@ -418,12 +423,15 @@ def main() -> int:
         print("Recompile them to update the wiki with current information.")
 
     if no_hash:
-        print(f"provenance_check: {len(no_hash)} page(s) without source_hash (add for tracking)")
+        print(f"provenance_check: {len(no_hash)} page(s) without source_hash (required for non-session sources)")
         for page in no_hash:
             print(f"  {page}")
 
     if not stale:
-        print(f"provenance_check: OK ({checked} checked, {fresh} fresh, {len(no_hash)} without hash)")
+        print(
+            f"provenance_check: OK ({checked} checked, {fresh} fresh, "
+            f"{session_exempt} session-exempt, {len(no_hash)} without hash)"
+        )
         return 0
     return 1
 
@@ -765,7 +773,7 @@ status: current / draft / stale
 - `updated` — 最后更新日期（不填则等于 created）
 - `tags` — 分类标签，Obsidian 可直接用
 - `status` — `current`（默认）/ `draft`（未确认）/ `stale`（可能过期）
-- `source_hash` — 编译时源文件的 SHA-256 前 16 位。`provenance_check.py` 用它检测源文件是否已变更。源文件变了 → 页面标记为 stale。
+- `source_hash` — 编译时源文件的 SHA-256 前 16 位。文件来源页面要填；`source: session` 的页面可以省略。`provenance_check.py` 用它检测源文件是否已变更。源文件变了 → 页面标记为 stale。
 
 ### 为什么这样设计
 - AI 读一个页面就知道信息从哪来，不用额外查 manifest
@@ -809,7 +817,6 @@ status: current / draft / stale
         target / "docs" / "wiki" / "project-overview.md": f"""---
 title: {project_name} Overview
 source: session
-source_hash: 0000000000000000
 created: {today}
 tags: [overview]
 status: draft
@@ -822,7 +829,6 @@ status: draft
         target / "docs" / "wiki" / "current-status.md": f"""---
 title: {project_name} Current Status
 source: session
-source_hash: 0000000000000000
 created: {today}
 tags: [status]
 status: current
@@ -835,7 +841,6 @@ status: current
         target / "docs" / "wiki" / "sources-and-data.md": f"""---
 title: Sources and Data
 source: session
-source_hash: 0000000000000000
 created: {today}
 tags: [data, raw]
 status: current
@@ -856,7 +861,6 @@ GitHub 里只保留 manifest 和编译结果。
         target / "docs" / "wiki" / "github-and-raw-strategy.md": f"""---
 title: GitHub and Raw Strategy
 source: session
-source_hash: 0000000000000000
 created: {today}
 tags: [strategy, git]
 status: current
