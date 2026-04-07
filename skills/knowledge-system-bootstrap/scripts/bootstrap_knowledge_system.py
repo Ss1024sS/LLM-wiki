@@ -5,6 +5,8 @@ import re
 from datetime import date
 from pathlib import Path
 
+__version__ = "1.0.1"
+
 
 def slugify(value: str) -> str:
     value = value.strip().lower()
@@ -13,6 +15,7 @@ def slugify(value: str) -> str:
 
 
 WIKI_CHECK = """from __future__ import annotations
+# llm-wiki-version: 1.0.1
 
 import re
 import sys
@@ -135,6 +138,7 @@ if __name__ == "__main__":
 
 
 RAW_MANIFEST_CHECK = """from __future__ import annotations
+# llm-wiki-version: 1.0.1
 
 import csv
 import os
@@ -222,6 +226,7 @@ if __name__ == "__main__":
 
 
 UNTRACKED_RAW_CHECK = """from __future__ import annotations
+# llm-wiki-version: 1.0.1
 
 import csv
 import os
@@ -304,6 +309,7 @@ if __name__ == "__main__":
 
 
 PROVENANCE_CHECK = """from __future__ import annotations
+# llm-wiki-version: 1.0.1
 
 import csv
 import hashlib
@@ -898,6 +904,24 @@ status: current
         target / "scripts" / "provenance_check.py": PROVENANCE_CHECK,
         target / "scripts" / "init_raw_root.py": INIT_RAW_ROOT.format(raw_root_name=raw_root_name),
         target / "scripts" / "export_memory_repo.py": EXPORT_MEMORY_REPO,
+        target / "scripts" / "upgrade.sh": """#!/usr/bin/env bash
+# llm-wiki-version: 1.0.1
+# Upgrade LLM-wiki scripts to latest version.
+# Updates validation scripts and CI only. Never touches wiki content.
+set -euo pipefail
+REPO="https://github.com/Ss1024sS/LLM-wiki.git"
+TMP=$(mktemp -d)
+trap "rm -rf $TMP" EXIT
+echo "Fetching latest LLM-wiki..."
+git clone --depth 1 "$REPO" "$TMP/repo" 2>/dev/null
+UPGRADE="$TMP/repo/scripts/upgrade_knowledge_system.py"
+if [ -f "$UPGRADE" ]; then
+  python3 "$UPGRADE" "$(pwd)"
+else
+  echo "Error: upgrade script not found in latest LLM-wiki"
+  exit 1
+fi
+""",
         target / ".cursorrules": f"""This project ({project_name}) uses a wiki-first knowledge system.
 
 Before starting any non-trivial task:

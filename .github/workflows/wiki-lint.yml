@@ -10,11 +10,11 @@ jobs:
       - name: "Bootstrap: create project via root wrapper"
         run: python3 scripts/bootstrap_knowledge_system.py /tmp/smoke-project "Smoke Test Project"
 
-      - name: "Bootstrap: verify 22 files created"
+      - name: "Bootstrap: verify 23 files created"
         run: |
           COUNT=$(find /tmp/smoke-project -type f | wc -l)
           echo "Files created: $COUNT"
-          [ "$COUNT" -eq 22 ] || { echo "FAIL: expected 22 files, got $COUNT"; exit 1; }
+          [ "$COUNT" -eq 23 ] || { echo "FAIL: expected 23 files, got $COUNT"; exit 1; }
 
       # 2. Run ALL validation scripts on the bootstrapped project
       - name: "Validate: wiki_check.py"

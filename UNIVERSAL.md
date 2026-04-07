@@ -287,6 +287,19 @@ If yes, your knowledge system is compiling. If no, check that writeback is actua
 
 ---
 
+## Upgrading
+
+Already bootstrapped a project and want the latest scripts?
+
+```bash
+cd /path/to/your-project
+bash scripts/upgrade.sh
+```
+
+This updates validation scripts and CI workflow only. Your wiki content, manifests, and customized configs (CLAUDE.md, AGENTS.md, etc.) are never touched. Template changes are printed for you to review and merge manually.
+
+---
+
 ## Credits
 
 Baseline paradigm from [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). This repo packages it into a reusable, platform-agnostic engineering practice.

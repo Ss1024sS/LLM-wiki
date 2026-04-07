@@ -125,6 +125,19 @@ See `examples/demo-project/` for what a healthy wiki looks like after a few sess
 
 ---
 
+## Upgrading Existing Projects
+
+Already using LLM-wiki and want the latest scripts?
+
+```bash
+cd /path/to/your-project
+bash scripts/upgrade.sh
+```
+
+Updates validation scripts and CI only. Wiki content and customized configs are never touched.
+
+---
+
 ## Don't Do These Things
 
 - Don't put raw PDFs/XLSX into Git. That's a binary junk pile, not version control.
