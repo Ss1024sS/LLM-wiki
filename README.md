@@ -138,6 +138,7 @@ See `examples/demo-project/` for what a healthy wiki looks like after a few sess
 
 - [UNIVERSAL.md](./UNIVERSAL.md) — Setup guide + migration path + FAQ + templates for every AI
 - [docs/knowledge-system-playbook.md](./docs/knowledge-system-playbook.md) — Full rationale (CN+EN), GitHub/raw split, provenance roadmap
+- [docs/release-notes-v1.0.1.md](./docs/release-notes-v1.0.1.md) — What changed after the initial v1.0.0 release
 - [examples/demo-project/](./examples/demo-project/) — What a bootstrapped project looks like after 3 sessions
 
 ---

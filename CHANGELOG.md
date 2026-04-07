@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.1 (2026-04-07)
+
+Patch release. This one fixes the parts that looked finished but still had sharp edges.
+
+### Fixed
+- Root docs now consistently say bootstrap generates `22` files, not `20` or `21`
+- `source: session` pages are now provenance-exempt instead of using fake `0000000000000000` hashes
+- `provenance_check.py` now reports `session-exempt` pages explicitly and only requires `source_hash` for non-session sources
+- Demo project was aligned with the real provenance model
+
+### Improved
+- Root wrapper path is now the only documented entry point: `scripts/bootstrap_knowledge_system.py`
+- Smoke-tested bootstrap output still creates `22` files and passes all validators
+- README + CHANGELOG + bootstrap behavior are back in sync instead of drifting apart
+
+### Why it matters
+- Less path confusion
+- Cleaner provenance semantics
+- Fewer “docs say one thing, script does another” footguns
+
 ## v1.0.0 (2026-04-06)
 
 First stable release. Everything below was built in one day.
