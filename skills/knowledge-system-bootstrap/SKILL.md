@@ -9,7 +9,7 @@ Use this when the user wants a project to stop relying on chat memory and start 
 
 ## What this skill does
 
-Scaffolds a complete wiki-first knowledge system (24 files):
+Scaffolds a complete wiki-first knowledge system (27 files):
 
 - `docs/wiki/` — 8 wiki pages with YAML frontmatter (title, source, created, tags, status)
 - `manifests/raw_sources.csv` — raw file index (never raw files themselves)
@@ -64,10 +64,18 @@ If the repo already has docs or a CLAUDE.md:
 
 ## Upgrade
 
-Existing projects can upgrade to the latest scripts:
+Existing bootstrapped projects can upgrade in place:
 
 ```bash
 bash scripts/upgrade.sh
+```
+
+If the project predates `scripts/upgrade.sh`, use the public repo wrapper once:
+
+```bash
+git clone https://github.com/Ss1024sS/LLM-wiki.git
+cd LLM-wiki
+bash scripts/upgrade.sh /path/to/your-project
 ```
 
 Updates validation scripts and CI only. Wiki content and customized configs are never touched.

@@ -56,7 +56,7 @@ These are `.md` files that Claude Code reads automatically. No installation need
 
 ### 6. Codex skill updated
 
-`SKILL.md` now documents the full 24-file output, provenance tracking, upgrade path, and migration flow.
+`SKILL.md` now documents the full 27-file output, provenance tracking, upgrade path, and migration flow.
 
 ## File count
 
@@ -86,13 +86,12 @@ ls .claude/commands/                  # wiki-check.md  wiki-status.md  wiki-upgr
 If you bootstrapped a project with v1.0.0 or v1.0.1:
 
 ```bash
-cd /path/to/your-project
-# Get the upgrade script (you don't have it yet)
-curl -sL https://raw.githubusercontent.com/Ss1024sS/LLM-wiki/main/scripts/upgrade_knowledge_system.py -o /tmp/upgrade.py
-python3 /tmp/upgrade.py /path/to/your-project
+git clone https://github.com/Ss1024sS/LLM-wiki.git
+cd LLM-wiki
+bash scripts/upgrade.sh /path/to/your-project
 ```
 
-After that, future upgrades use `bash scripts/upgrade.sh` directly.
+After that, future upgrades use `bash scripts/upgrade.sh` directly inside the bootstrapped project.
 
 ## What did not change
 
