@@ -5,7 +5,7 @@
 First stable release. Everything below was built in one day.
 
 ### Core
-- Bootstrap script generates 21 files in one command (`--dry-run` to preview)
+- Bootstrap script generates 22 files in one command (`--dry-run` to preview)
 - 5 platform configs auto-generated: AGENTS.md, CLAUDE.md, .cursorrules, .windsurfrules, + ChatGPT manual workflow
 - YAML frontmatter on all wiki pages (title, source, created, tags, status)
 - Two-layer provenance: manifest CSV tracks raw files, frontmatter tracks wiki pages

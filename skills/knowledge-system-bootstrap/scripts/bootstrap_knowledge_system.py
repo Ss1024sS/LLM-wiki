@@ -809,6 +809,7 @@ status: current / draft / stale
         target / "docs" / "wiki" / "project-overview.md": f"""---
 title: {project_name} Overview
 source: session
+source_hash: 0000000000000000
 created: {today}
 tags: [overview]
 status: draft
@@ -821,6 +822,7 @@ status: draft
         target / "docs" / "wiki" / "current-status.md": f"""---
 title: {project_name} Current Status
 source: session
+source_hash: 0000000000000000
 created: {today}
 tags: [status]
 status: current
@@ -833,6 +835,7 @@ status: current
         target / "docs" / "wiki" / "sources-and-data.md": f"""---
 title: Sources and Data
 source: session
+source_hash: 0000000000000000
 created: {today}
 tags: [data, raw]
 status: current
@@ -853,6 +856,7 @@ GitHub 里只保留 manifest 和编译结果。
         target / "docs" / "wiki" / "github-and-raw-strategy.md": f"""---
 title: GitHub and Raw Strategy
 source: session
+source_hash: 0000000000000000
 created: {today}
 tags: [strategy, git]
 status: current

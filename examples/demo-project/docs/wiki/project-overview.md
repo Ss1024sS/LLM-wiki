@@ -1,6 +1,7 @@
 ---
 title: Acme Widget Factory — Overview
 source: raw/internal_sources/Quoting Template v3.xlsx
+source_hash: a1b2c3d4e5f60708
 created: 2026-04-01
 updated: 2026-04-03
 tags: [overview, formula]

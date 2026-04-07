@@ -64,7 +64,7 @@ LLM-wiki/
 │       └── manifests/raw_sources.csv
 ├── skills/
 │   └── knowledge-system-bootstrap/  # Codex skill for automated scaffolding
-│       └── scripts/bootstrap_knowledge_system.py  # Generates 20 files in one command
+│       └── scripts/bootstrap_knowledge_system.py  # Generates 22 files in one command
 └── scripts/
     └── install-codex-skill.sh
 ```
@@ -96,7 +96,7 @@ python3 scripts/bootstrap_knowledge_system.py /path/to/your-project "My Project"
 
 **Always use `scripts/bootstrap_knowledge_system.py`** (the root wrapper). Never call the one inside `skills/` directly — that's the Codex skill's internal copy.
 
-Generates 21 files: wiki structure, frontmatter templates, manifests, validation scripts, CI workflow, and configs for 4 AI platforms.
+Generates 22 files: wiki structure, frontmatter templates, manifests, validation scripts, CI workflow, and configs for 4 AI platforms.
 
 ### Option C: Install as Codex skill
 
