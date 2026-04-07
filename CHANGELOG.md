@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `UNIVERSAL.md` no longer nests a triple-backtick YAML block inside a triple-backtick Markdown block; the Claude template now renders cleanly in stricter Markdown parsers.
+- Team collaboration guidance now includes an actual merge-conflict strategy instead of hand-waving with “Git handles conflicts”.
+
 ## v1.1.0 (2026-04-07)
 
 Auto-update + community hardening.

@@ -158,6 +158,34 @@ manifest 是 raw 的目录卡，不是 raw 本体。
 - 新规则落地：更 wiki + 测试
 - 新样本确认：进 verified cases
 
+## 团队协作和 merge conflict 怎么处理
+
+多人协作时，最容易烂掉的不是代码，是 wiki。
+
+别装作 Git 会替你思考。它只会把冲突甩你脸上。
+
+默认按这 5 条来：
+
+1. **一个 session 只主编一个主题页。**
+   `current-status.md` 这种总览页谁都能动，但真正的细分页面最好有当前主编，不要两个人同时乱改同一页。
+
+2. **具体页优先于摘要页。**
+   如果 `current-status.md` 和某个专题页冲突，先信专题页；改完后再回写摘要页。
+
+3. **`log.md` 只追加，不回头洗稿。**
+   每个人只写自己的那一条。不要为了“整齐”去改别人昨天的记录。
+
+4. **冲突解决靠来源，不靠拍脑袋。**
+   真遇到 merge conflict，保留来源更清楚、证据更硬的版本；然后手工整理成一版干净正文，别把 conflict marker 或两套说法一起留着。
+
+5. **合并后必须重跑校验。**
+   至少跑：
+   - `python3 scripts/wiki_check.py`
+   - `python3 scripts/raw_manifest_check.py`
+   - 如果项目启用了 provenance，再跑 `python3 scripts/provenance_check.py`
+
+一句话：**Git 负责版本，协议负责收敛。**
+
 ## 对外部工具的态度
 
 - Obsidian 可以用，但它只是 `.md` 的前端

@@ -80,7 +80,7 @@ That's it. The AI will read the wiki at session start, update it during work, an
 
 Create `CLAUDE.md` in your project root:
 
-```markdown
+````markdown
 # [Project Name] — Claude Rules
 
 ## Knowledge System
@@ -141,7 +141,7 @@ This lets the AI know the provenance of each page without reading any external i
 - raw files stay outside Git, only manifests go in
 - all non-code files are "raw" — PDFs, spreadsheets, images, screenshots, customer attachments, archives, CAD files, audio, video
 - every wiki page must have frontmatter (title + source + created)
-```
+````
 
 ### Codex (`AGENTS.md`)
 
@@ -244,7 +244,15 @@ Current approach: `wiki_check.py` validates structure (broken links, missing pag
 
 **Q: What about multiple people / teams?**
 
-Each team maintains their own wiki pages. The index ties everything together. Git handles conflicts. The session protocol ensures each person's AI writes back to the same wiki, so knowledge converges rather than fragmenting across chat histories.
+Use a simple rule set, not vibes:
+
+1. **One session, one primary page owner at a time.** Don't have two people freestyle-edit `current-status.md` and the same deep wiki page in parallel unless someone wants a stupid merge.
+2. **Specific pages beat summary pages.** If `current-status.md` conflicts with `pricing.md`, keep the source-backed specific page, then rewrite the summary.
+3. **`log.md` is append-only.** Never edit someone else's old line unless you're fixing a typo. Add your own entry and move on.
+4. **Conflict resolution is manual, not "accept both".** If Git shows conflict markers in wiki pages, resolve them by keeping the version with clearer source backing, then rewrite the page into one clean narrative.
+5. **After every merge, rerun checks.** `wiki_check.py` first, then any raw/provenance checks. If the wiki is broken after merge, the merge is not done.
+
+Git stores versions. It does not think for you. The protocol still matters.
 
 **Q: Won't the token cost get scary as the wiki grows?**
 
