@@ -129,12 +129,20 @@ See `examples/demo-project/` for what a healthy wiki looks like after a few sess
 
 Already using LLM-wiki and want the latest scripts?
 
+If you're inside an already-bootstrapped project:
+
 ```bash
 cd /path/to/your-project
 bash scripts/upgrade.sh
 ```
 
 Updates validation scripts and CI only. Wiki content and customized configs are never touched.
+
+If you're standing in this public repo clone instead:
+
+```bash
+bash scripts/upgrade.sh /path/to/your-project
+```
 
 ---
 

@@ -5,7 +5,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 
 def slugify(value: str) -> str:
@@ -15,7 +15,7 @@ def slugify(value: str) -> str:
 
 
 WIKI_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.0.1
+# llm-wiki-version: 1.1.0
 
 import re
 import sys
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
 
 RAW_MANIFEST_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.0.1
+# llm-wiki-version: 1.1.0
 
 import csv
 import os
@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
 
 UNTRACKED_RAW_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.0.1
+# llm-wiki-version: 1.1.0
 
 import csv
 import os
@@ -309,7 +309,7 @@ if __name__ == "__main__":
 
 
 PROVENANCE_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.0.1
+# llm-wiki-version: 1.1.0
 
 import csv
 import hashlib
@@ -448,7 +448,7 @@ if __name__ == "__main__":
 
 
 VERSION_CHECK = """from __future__ import annotations
-# llm-wiki-version: 1.0.1
+# llm-wiki-version: 1.1.0
 
 import json
 import re
@@ -965,7 +965,7 @@ status: current
         target / "scripts" / "export_memory_repo.py": EXPORT_MEMORY_REPO,
         target / "scripts" / "version_check.py": VERSION_CHECK,
         target / "scripts" / "upgrade.sh": """#!/usr/bin/env bash
-# llm-wiki-version: 1.0.1
+# llm-wiki-version: 1.1.0
 # Upgrade LLM-wiki scripts to latest version.
 # Updates validation scripts and CI only. Never touches wiki content.
 set -euo pipefail

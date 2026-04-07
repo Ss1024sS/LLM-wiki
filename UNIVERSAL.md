@@ -297,6 +297,12 @@ cd /path/to/your-project
 bash scripts/upgrade.sh
 ```
 
+If you're running from the `LLM-wiki` repo clone itself instead:
+
+```bash
+bash scripts/upgrade.sh /path/to/your-project
+```
+
 This updates validation scripts and CI workflow only. Your wiki content, manifests, and customized configs (CLAUDE.md, AGENTS.md, etc.) are never touched. Template changes are printed for you to review and merge manually.
 
 ---
