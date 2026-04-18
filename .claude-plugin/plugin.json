@@ -1,0 +1,22 @@
+{
+  "name": "llm-wiki",
+  "version": "1.3.0",
+  "description": "Compile-first project knowledge system. Bootstraps wiki/raw/manifest layout + validation scripts + multi-platform AI configs (Claude Code, Codex, Cursor, Windsurf).",
+  "author": {
+    "name": "Ss1024sS",
+    "url": "https://github.com/Ss1024sS"
+  },
+  "homepage": "https://github.com/Ss1024sS/LLM-wiki",
+  "repository": "https://github.com/Ss1024sS/LLM-wiki",
+  "license": "MIT",
+  "keywords": [
+    "knowledge-management",
+    "wiki",
+    "compile-first",
+    "karpathy",
+    "obsidian"
+  ],
+  "skills": [
+    "skills/knowledge-system-bootstrap"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "llm-wiki",
+  "owner": {
+    "name": "Ss1024sS",
+    "url": "https://github.com/Ss1024sS"
+  },
+  "metadata": {
+    "description": "Drop-in compile-first knowledge system for any project. Multi-platform.",
+    "version": "1.3.0"
+  },
+  "plugins": [
+    {
+      "name": "llm-wiki",
+      "source": "./",
+      "description": "Bootstrap a wiki-first knowledge system into any project.",
+      "version": "1.3.0",
+      "category": "productivity",
+      "tags": ["knowledge-management", "wiki", "karpathy", "documentation"],
+      "license": "MIT",
+      "homepage": "https://github.com/Ss1024sS/LLM-wiki",
+      "strict": false
+    }
+  ]
+}
