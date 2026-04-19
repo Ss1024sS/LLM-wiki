@@ -26,7 +26,7 @@ Five rules:
 
 1. **Compile-first** — Don't just answer. Write conclusions into wiki pages.
 2. **Writeback is mandatory** — Every decision goes back to the wiki. Every single one.
-3. **Wiki before RAG** — Under ~100 docs, LLM reads directly. No vector DB needed.
+3. **Wiki before RAG** — Under ~100 docs (or ~80k tokens, measured by `scripts/wiki_size_report.py`), LLM reads directly. No vector DB needed.
 4. **Obsidian is replaceable, the paradigm is not** — The engine is LLM + filesystem + markdown.
 5. **Ideas outrank Code** — Your wiki of decisions and formulas is worth more than the code it generates.
 
@@ -36,7 +36,7 @@ Five rules:
 
 | Platform | Config File | Status |
 |----------|------------|--------|
-| Claude Code | `CLAUDE.md` | Full template in UNIVERSAL.md |
+| Claude Code | `CLAUDE.md` | **Native plugin** (`claude plugin install Ss1024sS/llm-wiki`) + template |
 | Codex | `AGENTS.md` | Native skill + template |
 | Cursor | `.cursorrules` | Template in UNIVERSAL.md |
 | Windsurf | `.windsurfrules` | Template in UNIVERSAL.md |
@@ -68,7 +68,7 @@ LLM-wiki/
 ├── skills/
 │   └── knowledge-system-bootstrap/
 │       ├── scripts/bootstrap_knowledge_system.py  # 240-line renderer (was 2.6k LOC pre-1.3.0)
-│       └── templates/              # 32 standalone files: scripts, configs, wiki pages
+│       └── templates/              # 33 standalone files: scripts, configs, wiki pages
 ├── tests/                          # 35 pytest cases for bootstrap + every check
 └── scripts/
     ├── bootstrap_knowledge_system.py   # Wrapper — always call this one
@@ -102,7 +102,7 @@ python3 scripts/bootstrap_knowledge_system.py /path/to/your-project "My Project"
 
 **Always use `scripts/bootstrap_knowledge_system.py`** (the root wrapper). Never call the one inside `skills/` directly — that's the skill's internal copy.
 
-Generates 32 files: wiki structure, frontmatter templates, manifests + schema, raw intake + stale reporting scripts, manual delta-compile scaffolds, validation scripts (including `wiki_size_report.py` and `provenance_check.py --ci`), Claude Code commands, CI workflow, and configs for 4 AI platforms.
+Generates 33 files: wiki structure (8 pages with frontmatter), manifests + schema, raw intake + stale reporting scripts, manual delta-compile scaffolds, validation scripts (including `wiki_size_report.py` for quantitative RAG-threshold triage and `provenance_check.py --ci` for raw-free CI), Claude Code commands, CI workflow, and configs for 4 AI platforms.
 
 `--force` re-runs back up existing files to `<file>.bak.<timestamp>` before overwriting (pass `--no-backup` to opt out).
 
